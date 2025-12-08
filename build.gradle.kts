@@ -238,7 +238,7 @@ fun Project.configureLoaderProject(config: LoaderProject) {
 
     val shadowJar = tasks.named<ShadowJar>("shadowJar") {
         archiveClassifier.set("shadow")
-        configurations.add(architecturyApiConfiguration)
+        configurations = listOf(architecturyApiConfiguration)
         relocate("dev.architectury", architecturyRelocationBase)
         exclude("architectury.accessWidener")
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE

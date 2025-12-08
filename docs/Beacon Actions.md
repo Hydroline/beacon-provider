@@ -2,12 +2,20 @@
 
 记录 Beacon Provider 目前可用的 `action` 与其输入/输出格式，并说明如何扩展新的 action，方便 Bukkit 插件或其他外部系统调用。
 
+> 注意：Beacon Provider Mod 只会在服务端（Fabric/Forge）加载，所有 action 的执行与数据采集都发生在服务端主线程，Bukkit 通过 Plugin Messaging Channel 发送请求，再由服务端转回响应。
+
 ## 1. Action 列表
 
-| Action 名称     | 作用                                                                                           | 请求 `payload`                             | 响应 `payload`                                                                      |
-| --------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------- |
-| `beacon:ping`   | 校验通道连通性并测量延迟。                                                                     | 可选字段：`echo` (`string`) 将被原样返回。 | `echo`（原样返回）、`receivedAt`（服务器时间戳，ms）、`latencyMs`（处理耗时估算）。 |
-| `beacon:invoke` | 预留的默认 action，用于兼容旧版或一次性调试；当前未绑定具体实现，发送会收到 `INVALID_ACTION`。 | 任意 JSON。                                | -                                                                                   |
+| Action 名称                 | 作用                                                                                           | 请求 `payload`                                                                                    | 响应 `payload`                                                                                                                                                        |
+| --------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `beacon:ping`               | 校验通道连通性并测量延迟。                                                                     | 可选字段：`echo` (`string`) 将被原样返回。                                                        | `echo`（原样返回）、`receivedAt`（服务器时间戳，ms）、`latencyMs`（处理耗时估算）。                                                                                   |
+| `beacon:invoke`             | 预留的默认 action，用于兼容旧版或一次性调试；当前未绑定具体实现，发送会收到 `INVALID_ACTION`。 | 任意 JSON。                                                                                       | -                                                                                                                                                                     |
+| `mtr:list_network_overview` | 汇总所有维度的线路、车站、车厂、收费区概览，供网站首页展示。                                   | `{}` 或 `{ "dimension": "minecraft:overworld" }`（可选过滤维度）。                                | `{ "dimensions": [ { "dimension": "...", "routes": [...], "depots": [...], "fareAreas": [...] } ] }`                                                                  |
+| `mtr:get_route_detail`      | 查询指定维度 + 线路的节点序列、颜色、类型等信息，用于线路详情页。                              | `{ "dimension": "minecraft:overworld", "routeId": 123 }`                                          | `{ "dimension": "...", "routeId": 123, "name": "...", "color": 16711680, "routeType": "NORMAL", "nodes": [...] }`                                                     |
+| `mtr:list_depots`           | 返回所有车厂的排班、关联线路和实时/循环配置。                                                  | `{}` 或 `{ "dimension": "minecraft:overworld" }`                                                  | `{ "depots": [ { "depotId": 1, "name": "...", "routeIds": [...], "departures": [...], ... } ] }`                                                                      |
+| `mtr:list_fare_areas`       | 输出站点/收费区边界（Leaflet 绘制用），含换乘线路。                                            | `{ "dimension": "minecraft:overworld" }`                                                          | `{ "dimension": "...", "fareAreas": [ { "stationId": 1, "zone": 3, "bounds": {...}, "interchangeRouteIds": [...] } ] }`                                               |
+| `mtr:list_nodes_paginated`  | 为 Bukkit 端批量同步节点（含轨道类型、是否站台段），供地图绘制。                               | `{ "dimension": "minecraft:overworld", "cursor": "optional", "limit": 512 }`                      | `{ "dimension": "...", "nodes": [ { "x": 0, "y": 64, "z": 0, "railType": "PLATFORM", ... } ], "nextCursor": "...", "hasMore": true }`                                 |
+| `mtr:get_station_timetable` | 查询指定站（可选限定站台）的计划到站＋延误，供站点详情页使用。                                 | `{ "dimension": "minecraft:overworld", "stationId": 456, "platformId": 789 }` (`platformId` 可选) | `{ "dimension": "...", "stationId": 456, "platforms": [ { "platformId": 789, "entries": [ { "routeId": 1, "arrivalMillis": 123456789, "delayMillis": 12000 } ] } ] }` |
 
 > 说明：我们会在后续版本中补充 MTR/Create 相关的业务 action（例如 `mtr:get_routes`、`create:get_machines`），并在该文档持续更新。
 

@@ -1,5 +1,11 @@
 package com.hydroline.beacon.provider.service;
 
+import com.hydroline.beacon.provider.service.mtr.MtrGetRouteDetailActionHandler;
+import com.hydroline.beacon.provider.service.mtr.MtrGetStationTimetableActionHandler;
+import com.hydroline.beacon.provider.service.mtr.MtrListDepotsActionHandler;
+import com.hydroline.beacon.provider.service.mtr.MtrListFareAreasActionHandler;
+import com.hydroline.beacon.provider.service.mtr.MtrListNetworkOverviewActionHandler;
+import com.hydroline.beacon.provider.service.mtr.MtrListNodesPaginatedActionHandler;
 import java.util.Arrays;
 
 /**
@@ -11,7 +17,13 @@ public final class BeaconServiceFactory {
 
     public static DefaultBeaconProviderService createDefault() {
         return new DefaultBeaconProviderService(Arrays.asList(
-            new PingActionHandler()
+            new PingActionHandler(),
+            new MtrListNetworkOverviewActionHandler(),
+            new MtrGetRouteDetailActionHandler(),
+            new MtrListDepotsActionHandler(),
+            new MtrListFareAreasActionHandler(),
+            new MtrListNodesPaginatedActionHandler(),
+            new MtrGetStationTimetableActionHandler()
         ));
     }
 }
