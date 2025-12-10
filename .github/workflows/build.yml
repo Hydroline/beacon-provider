@@ -44,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fabric-1.16.5-release
-          path: fabric-1.16.5/build/libs/release/*[!-sources][!-shadow].jar
+          path: fabric-1.16.5/build/libs/*[!-sources][!-shadow].jar
           if-no-files-found: error
           retention-days: 14
 
@@ -52,7 +52,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fabric-1.18.2-release
-          path: fabric-1.18.2/build/libs/release/*[!-sources][!-shadow].jar
+          path: fabric-1.18.2/build/libs/*[!-sources][!-shadow].jar
           if-no-files-found: error
           retention-days: 14
 
@@ -60,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fabric-1.20.1-release
-          path: fabric-1.20.1/build/libs/release/*[!-sources][!-shadow].jar
+          path: fabric-1.20.1/build/libs/*[!-sources][!-shadow].jar
           if-no-files-found: error
           retention-days: 14
 
@@ -68,7 +68,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: forge-1.16.5-release
-          path: forge-1.16.5/build/libs/release/*[!-sources][!-shadow].jar
+          path: forge-1.16.5/build/libs/*[!-sources][!-shadow].jar
           if-no-files-found: error
           retention-days: 14
 
@@ -76,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: forge-1.18.2-release
-          path: forge-1.18.2/build/libs/release/*[!-sources][!-shadow].jar
+          path: forge-1.18.2/build/libs/*[!-sources][!-shadow].jar
           if-no-files-found: error
           retention-days: 14
 
@@ -84,6 +84,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: forge-1.20.1-release
-          path: forge-1.20.1/build/libs/release/*[!-sources][!-shadow].jar
+          path: forge-1.20.1/build/libs/*[!-sources][!-shadow].jar
           if-no-files-found: error
           retention-days: 14
