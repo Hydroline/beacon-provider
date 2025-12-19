@@ -16,7 +16,7 @@ import java.util.Objects;
 
 public final class GatewayConfigLoader {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path RELATIVE_PATH = Paths.get("hydroline", "beacon-provider.json");
+    private static final Path RELATIVE_PATH = Paths.get("beacon-provider", "beacon-provider.json");
 
     public GatewayConfig load(Path configRoot) {
         Objects.requireNonNull(configRoot, "configRoot");
