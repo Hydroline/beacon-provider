@@ -4,6 +4,7 @@ import com.hydroline.beacon.provider.service.mtr.MtrGetConnectionProfileActionHa
 import com.hydroline.beacon.provider.service.mtr.MtrGetPlatformPositionMapActionHandler;
 import com.hydroline.beacon.provider.service.mtr.MtrGetRailCurveSegmentsActionHandler;
 import com.hydroline.beacon.provider.service.mtr.MtrGetRouteFinderSnapshotActionHandler;
+import com.hydroline.beacon.provider.service.mtr.MtrGetRoutefinderCacheActionHandler;
 import com.hydroline.beacon.provider.service.mtr.MtrGetRoutefinderDataActionHandler;
 import com.hydroline.beacon.provider.service.mtr.MtrGetRoutefinderEdgesActionHandler;
 import com.hydroline.beacon.provider.service.mtr.MtrGetRoutefinderStateActionHandler;
@@ -26,6 +27,7 @@ public final class BeaconServiceFactory {
             new MtrGetRoutefinderDataActionHandler(),
             new MtrGetRoutefinderStateActionHandler(),
             new MtrGetRoutefinderEdgesActionHandler(),
+            new MtrGetRoutefinderCacheActionHandler(),
             new MtrGetConnectionProfileActionHandler(),
             new MtrGetPlatformPositionMapActionHandler(),
             new MtrGetRailCurveSegmentsActionHandler(),

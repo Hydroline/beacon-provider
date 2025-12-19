@@ -10,6 +10,7 @@ import com.hydroline.beacon.provider.transport.ChannelMessageRouter;
 import com.hydroline.beacon.provider.transport.ChannelMessenger;
 import com.hydroline.beacon.provider.mtr.MtrQueryGateway;
 import com.hydroline.beacon.provider.mtr.MtrQueryRegistry;
+import com.hydroline.beacon.provider.mtr.RouteFinderCacheCoordinator;
 import com.hydroline.beacon.provider.fabric.mtr.FabricMtrQueryGateway;
 import java.util.UUID;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -42,11 +43,13 @@ public final class FabricBeaconNetwork {
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             messenger.setServer(server);
             MtrQueryRegistry.register(new FabricMtrQueryGateway(() -> server));
+            RouteFinderCacheCoordinator.start(server);
             gatewayManager.start(FabricLoader.getInstance().getConfigDir());
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             messenger.setServer(null);
             MtrQueryRegistry.register(MtrQueryGateway.UNAVAILABLE);
+            RouteFinderCacheCoordinator.stop();
             gatewayManager.stop();
         });
     }

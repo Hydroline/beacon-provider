@@ -27,6 +27,7 @@ dependencies {
     compileOnly(files(architecturyJarFile).builtBy(downloadArchitecturyJar))
     compileOnly(files(mtrCommonJar))
     compileOnly("it.unimi.dsi:fastutil:8.5.9")
+    implementation("org.xerial:sqlite-jdbc:3.43.0.0")
 }
 
 java {

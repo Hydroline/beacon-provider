@@ -4,6 +4,7 @@ import com.hydroline.beacon.provider.forge.mtr.ForgeMtrQueryGateway;
 import com.hydroline.beacon.provider.gateway.BeaconGatewayManager;
 import com.hydroline.beacon.provider.mtr.MtrQueryGateway;
 import com.hydroline.beacon.provider.mtr.MtrQueryRegistry;
+import com.hydroline.beacon.provider.mtr.RouteFinderCacheCoordinator;
 import com.hydroline.beacon.provider.protocol.BeaconResponse;
 import com.hydroline.beacon.provider.protocol.ChannelConstants;
 import com.hydroline.beacon.provider.protocol.MessageSerializer;
@@ -57,6 +58,7 @@ public final class ForgeBeaconNetwork {
     public void onServerStarted(FMLServerStartedEvent event) {
         messenger.setServer(event.getServer());
         MtrQueryRegistry.register(new ForgeMtrQueryGateway(() -> event.getServer()));
+        RouteFinderCacheCoordinator.start(event.getServer());
         gatewayManager.start(FMLPaths.CONFIGDIR.get());
     }
 
@@ -64,6 +66,7 @@ public final class ForgeBeaconNetwork {
     public void onServerStopping(FMLServerStoppingEvent event) {
         messenger.setServer(null);
         MtrQueryRegistry.register(MtrQueryGateway.UNAVAILABLE);
+        RouteFinderCacheCoordinator.stop();
         gatewayManager.stop();
     }
 

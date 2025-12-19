@@ -10,6 +10,7 @@ import com.hydroline.beacon.provider.transport.ChannelMessageRouter;
 import com.hydroline.beacon.provider.transport.ChannelMessenger;
 import com.hydroline.beacon.provider.mtr.MtrQueryGateway;
 import com.hydroline.beacon.provider.mtr.MtrQueryRegistry;
+import com.hydroline.beacon.provider.mtr.RouteFinderCacheCoordinator;
 import com.hydroline.beacon.provider.forge.mtr.ForgeMtrQueryGateway;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -58,6 +59,7 @@ public final class ForgeBeaconNetwork {
         MinecraftServer server = event.getServer();
         messenger.setServer(server);
         MtrQueryRegistry.register(new ForgeMtrQueryGateway(() -> server));
+        RouteFinderCacheCoordinator.start(server);
         gatewayManager.start(FMLPaths.CONFIGDIR.get());
     }
 
@@ -65,6 +67,7 @@ public final class ForgeBeaconNetwork {
     public void onServerStopped(ServerStoppedEvent event) {
         messenger.setServer(null);
         MtrQueryRegistry.register(MtrQueryGateway.UNAVAILABLE);
+        RouteFinderCacheCoordinator.stop();
         gatewayManager.stop();
     }
 

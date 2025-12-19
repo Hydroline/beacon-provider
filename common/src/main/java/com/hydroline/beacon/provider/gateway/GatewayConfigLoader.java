@@ -12,16 +12,31 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 
 public final class GatewayConfigLoader {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path RELATIVE_PATH = Paths.get("hydroline", "beacon-provider.json");
+    private static final Path RELATIVE_PATH = Paths.get("beacon-provider", "beacon-provider.json");
+    private static final Path LEGACY_RELATIVE_PATH = Paths.get("hydroline", "beacon-provider.json");
 
     public GatewayConfig load(Path configRoot) {
         Objects.requireNonNull(configRoot, "configRoot");
         try {
             Path file = configRoot.resolve(RELATIVE_PATH);
+            Path legacy = configRoot.resolve(LEGACY_RELATIVE_PATH);
+            if (Files.exists(legacy) && Files.notExists(file)) {
+                try {
+                    Files.createDirectories(file.getParent());
+                    Files.move(legacy, file, StandardCopyOption.REPLACE_EXISTING);
+                    BeaconProviderMod.LOGGER.info("Migrated legacy config to {}", file);
+                } catch (IOException ex) {
+                    BeaconProviderMod.LOGGER.warn("Failed to migrate legacy config, reading from {}", legacy, ex);
+                    file = legacy;
+                }
+            } else if (Files.exists(legacy) && Files.exists(file)) {
+                BeaconProviderMod.LOGGER.info("Legacy config exists at {}, using {}", legacy, file);
+            }
             Files.createDirectories(file.getParent());
             if (Files.notExists(file)) {
                 GatewayConfig defaults = GatewayConfig.defaults();

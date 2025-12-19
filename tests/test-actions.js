@@ -24,6 +24,7 @@ const EXTRA_ACTIONS = [
   { name: "mtr:get_routefinder_data", slug: "mtr_routefinder_data" },
   { name: "mtr:get_routefinder_state", slug: "mtr_routefinder_state" },
   { name: "mtr:get_routefinder_edges", slug: "mtr_routefinder_edges" },
+  { name: "mtr:get_routefinder_cache", slug: "mtr_routefinder_cache" },
   { name: "mtr:get_connection_profile", slug: "mtr_connection_profile" },
   { name: "mtr:get_platform_position_map", slug: "mtr_platform_positions" },
   { name: "mtr:get_rail_curve_segments", slug: "mtr_rail_curve_segments" },
