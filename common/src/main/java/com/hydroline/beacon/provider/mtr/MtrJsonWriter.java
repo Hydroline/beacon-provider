@@ -19,6 +19,8 @@ import com.hydroline.beacon.provider.mtr.MtrModels.StationPlatformInfo;
 import com.hydroline.beacon.provider.mtr.MtrModels.StationTimetable;
 import com.hydroline.beacon.provider.mtr.MtrModels.TrainStatus;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Converts DTOs into the JSON schema expected by Bukkit / website callers.
@@ -73,6 +75,193 @@ public final class MtrJsonWriter {
         }
         json.add("nodes", nodes);
         return json;
+    }
+
+    public static JsonArray writeRouteFinderSnapshots(List<MtrModels.RouteFinderSnapshot> snapshots) {
+        JsonArray array = new JsonArray();
+        if (snapshots == null) {
+            return array;
+        }
+        for (MtrModels.RouteFinderSnapshot snapshot : snapshots) {
+            JsonObject json = new JsonObject();
+            json.addProperty("dimension", snapshot.getDimensionId());
+            json.addProperty("routeId", snapshot.getRouteId());
+            json.addProperty("name", snapshot.getRouteName());
+            JsonArray nodes = new JsonArray();
+            for (RouteNode node : snapshot.getNodes()) {
+                nodes.add(writeRouteNode(node));
+            }
+            json.add("nodes", nodes);
+            array.add(json);
+        }
+        return array;
+    }
+
+    public static JsonArray writeRouteFinderData(List<MtrModels.RouteFinderDataEntry> entries) {
+        JsonArray array = new JsonArray();
+        if (entries == null) {
+            return array;
+        }
+        for (MtrModels.RouteFinderDataEntry entry : entries) {
+            JsonObject json = new JsonObject();
+            json.addProperty("dimension", entry.getDimensionId());
+            json.addProperty("pos", entry.getPos());
+            json.addProperty("routeId", entry.getRouteId());
+            json.addProperty("duration", entry.getDuration());
+            json.addProperty("waitingTime", entry.getWaitingTime());
+            json.addProperty("source", entry.getSource());
+            json.add("stationIds", writeLongList(entry.getStationIds()));
+            array.add(json);
+        }
+        return array;
+    }
+
+    public static JsonArray writeRouteFinderEdges(List<MtrModels.RouteFinderEdge> edges) {
+        JsonArray array = new JsonArray();
+        if (edges == null) {
+            return array;
+        }
+        for (MtrModels.RouteFinderEdge edge : edges) {
+            JsonObject json = new JsonObject();
+            json.addProperty("dimension", edge.getDimensionId());
+            json.addProperty("routeId", edge.getRouteId());
+            json.addProperty("source", edge.getSource());
+            json.addProperty("index", edge.getIndex());
+            json.addProperty("fromPos", edge.getFromPos());
+            json.addProperty("toPos", edge.getToPos());
+            edge.getConnectionDensity().ifPresent(value -> json.addProperty("connectionDensity", value));
+            array.add(json);
+        }
+        return array;
+    }
+
+    public static JsonObject writeRouteFinderModuleState(Optional<MtrModels.RouteFinderModuleState> state) {
+        JsonObject json = new JsonObject();
+        if (state == null || !state.isPresent()) {
+            return json;
+        }
+        MtrModels.RouteFinderModuleState value = state.get();
+        json.addProperty("dimension", value.getDimensionId());
+        value.getStartPos().ifPresent(v -> json.addProperty("startPos", v));
+        value.getEndPos().ifPresent(v -> json.addProperty("endPos", v));
+        value.getTotalTime().ifPresent(v -> json.addProperty("totalTime", v));
+        value.getCount().ifPresent(v -> json.addProperty("count", v));
+        value.getStartMillis().ifPresent(v -> json.addProperty("startMillis", v));
+        value.getTickStage().ifPresent(v -> json.addProperty("tickStage", v));
+        json.add("globalBlacklist", writeLongIntMap(value.getGlobalBlacklist()));
+        json.add("localBlacklist", writeLongIntMap(value.getLocalBlacklist()));
+        return json;
+    }
+
+    public static JsonArray writeConnectionProfiles(List<MtrModels.ConnectionProfile> profiles) {
+        JsonArray array = new JsonArray();
+        if (profiles == null) {
+            return array;
+        }
+        for (MtrModels.ConnectionProfile profile : profiles) {
+            JsonObject json = new JsonObject();
+            json.addProperty("dimension", profile.getDimensionId());
+            json.addProperty("fromPos", profile.getFromPos());
+            json.addProperty("toPos", profile.getToPos());
+            json.addProperty("platformStart", profile.getPlatformStartPos());
+            profile.getShortestDuration().ifPresent(value -> json.addProperty("shortestDuration", value));
+            json.add("durationInfo", writeLongIntMap(profile.getDurationInfo()));
+            profile.getConnectionDensity().ifPresent(value -> json.addProperty("connectionDensity", value));
+            array.add(json);
+        }
+        return array;
+    }
+
+    public static JsonArray writePlatformPositions(List<MtrModels.PlatformPosition> positions) {
+        JsonArray array = new JsonArray();
+        if (positions == null) {
+            return array;
+        }
+        for (MtrModels.PlatformPosition position : positions) {
+            JsonObject json = new JsonObject();
+            json.addProperty("dimension", position.getDimensionId());
+            json.addProperty("platformId", position.getPlatformId());
+            json.addProperty("pos1", position.getPos1());
+            json.addProperty("pos2", position.getPos2());
+            json.addProperty("midPos", position.getMidPos());
+            json.addProperty("platformStart", position.getPlatformStart());
+            json.addProperty("platformEnd", position.getPlatformEnd());
+            array.add(json);
+        }
+        return array;
+    }
+
+    public static JsonArray writeRailCurveSegments(List<MtrModels.RailCurveSegment> segments) {
+        JsonArray array = new JsonArray();
+        if (segments == null) {
+            return array;
+        }
+        for (MtrModels.RailCurveSegment segment : segments) {
+            JsonObject json = new JsonObject();
+            json.addProperty("dimension", segment.getDimensionId());
+            json.addProperty("fromPos", segment.getFromPos());
+            json.addProperty("toPos", segment.getToPos());
+            json.addProperty("railType", segment.getRailType());
+            json.addProperty("transportMode", segment.getTransportMode());
+            json.add("segment1", writeRailSegmentParams(segment.getSegment1()));
+            json.add("segment2", writeRailSegmentParams(segment.getSegment2()));
+            array.add(json);
+        }
+        return array;
+    }
+
+    public static JsonObject writeRoutefinderVersion(MtrModels.RoutefinderVersion version) {
+        JsonObject json = new JsonObject();
+        if (version == null) {
+            return json;
+        }
+        json.addProperty("dimension", version.getDimensionId());
+        if (version.getMtrVersion() != null) {
+            json.addProperty("mtrVersion", version.getMtrVersion());
+        }
+        version.getRailwayDataVersion().ifPresent(value -> json.addProperty("railwayDataVersion", value));
+        return json;
+    }
+
+    private static JsonObject writeRailSegmentParams(MtrModels.RailSegmentParams params) {
+        JsonObject json = new JsonObject();
+        if (params == null) {
+            return json;
+        }
+        json.addProperty("h", params.getH());
+        json.addProperty("k", params.getK());
+        json.addProperty("r", params.getR());
+        json.addProperty("tStart", params.getTStart());
+        json.addProperty("tEnd", params.getTEnd());
+        json.addProperty("reverse", params.isReverse());
+        json.addProperty("straight", params.isStraight());
+        json.addProperty("yStart", params.getYStart());
+        json.addProperty("yEnd", params.getYEnd());
+        return json;
+    }
+
+    private static JsonObject writeLongIntMap(Map<Long, Integer> map) {
+        JsonObject json = new JsonObject();
+        if (map == null || map.isEmpty()) {
+            return json;
+        }
+        for (Map.Entry<Long, Integer> entry : map.entrySet()) {
+            json.addProperty(Long.toString(entry.getKey()), entry.getValue());
+        }
+        return json;
+    }
+
+    private static JsonArray writeLongList(List<Long> values) {
+        JsonArray array = new JsonArray();
+        if (values == null) {
+            return array;
+        }
+        for (Long value : values) {
+            if (value != null) {
+                array.add(value);
+            }
+        }
+        return array;
     }
 
     public static JsonArray writeDepots(List<DepotInfo> depots) {

@@ -1,5 +1,6 @@
 package com.hydroline.beacon.provider.mtr;
 
+import com.hydroline.beacon.provider.mtr.MtrModels;
 import com.hydroline.beacon.provider.mtr.MtrModels.Bounds;
 import com.hydroline.beacon.provider.mtr.MtrModels.DepotInfo;
 import com.hydroline.beacon.provider.mtr.MtrModels.DimensionOverview;
@@ -26,6 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +44,7 @@ import mtr.data.Platform;
 import mtr.data.Rail;
 import mtr.data.RailType;
 import mtr.data.RailwayData;
+import mtr.data.RailwayDataRouteFinderModule;
 import mtr.data.Route;
 import mtr.data.Route.RoutePlatform;
 import mtr.data.SavedRailBase;
@@ -67,6 +70,46 @@ public final class MtrDataMapper {
     private static final Field SIDING_DEPOT = locateField(Siding.class, "depot");
     private static final Field TRAIN_SERVER_ROUTE_ID = locateField(TrainServer.class, "routeId");
     private static final Field TRAIN_NEXT_STOPPING_INDEX = locateField(Train.class, "nextStoppingIndex");
+    private static final Field ROUTE_FINDER_CONNECTION_DENSITY = locateField(RailwayDataRouteFinderModule.class, "connectionDensity");
+    private static final Field RAILWAY_DATA_VERSION = locateField(RailwayData.class, "DATA_VERSION");
+    private static final Field CONNECTION_DETAILS_SHORT_DURATION = locateField(RailwayDataRouteFinderModule.ConnectionDetails.class, "shortestDuration");
+    private static final Field CONNECTION_DETAILS_DURATION_INFO = locateField(RailwayDataRouteFinderModule.ConnectionDetails.class, "durationInfo");
+    private static final Field CONNECTION_DETAILS_PLATFORM_START = locateField(RailwayDataRouteFinderModule.ConnectionDetails.class, "platformStart");
+    private static final Method SAVED_RAIL_GET_POSITION = locateMethod(SavedRailBase.class, "getPosition");
+    private static final Field RAIL_H1 = locateField(Rail.class, "h1");
+    private static final Field RAIL_K1 = locateField(Rail.class, "k1");
+    private static final Field RAIL_R1 = locateField(Rail.class, "r1");
+    private static final Field RAIL_T_START_1 = locateField(Rail.class, "tStart1");
+    private static final Field RAIL_T_END_1 = locateField(Rail.class, "tEnd1");
+    private static final Field RAIL_IS_STRAIGHT_1 = locateField(Rail.class, "isStraight1");
+    private static final Field RAIL_REVERSE_T_1 = locateField(Rail.class, "reverseT1");
+    private static final Field RAIL_H2 = locateField(Rail.class, "h2");
+    private static final Field RAIL_K2 = locateField(Rail.class, "k2");
+    private static final Field RAIL_R2 = locateField(Rail.class, "r2");
+    private static final Field RAIL_T_START_2 = locateField(Rail.class, "tStart2");
+    private static final Field RAIL_T_END_2 = locateField(Rail.class, "tEnd2");
+    private static final Field RAIL_IS_STRAIGHT_2 = locateField(Rail.class, "isStraight2");
+    private static final Field RAIL_REVERSE_T_2 = locateField(Rail.class, "reverseT2");
+    private static final Field RAIL_Y_START = locateField(Rail.class, "yStart");
+    private static final Field RAIL_Y_END = locateField(Rail.class, "yEnd");
+    private static final Field RAIL_TRANSPORT_MODE = locateField(Rail.class, "transportMode");
+    private static final Field RAIL_RAIL_TYPE = locateField(Rail.class, "railType");
+    private static final Field DATA_CACHE_PLATFORM_CONNECTIONS = locateField(DataCache.class, "platformConnections");
+    private static final Field ROUTE_FINDER_DATA_FIELD = locateField(RailwayDataRouteFinderModule.class, "data");
+    private static final Field ROUTE_FINDER_TEMP_DATA_FIELD = locateField(RailwayDataRouteFinderModule.class, "tempData");
+    private static final Field ROUTE_FINDER_START_POS = locateField(RailwayDataRouteFinderModule.class, "startPos");
+    private static final Field ROUTE_FINDER_END_POS = locateField(RailwayDataRouteFinderModule.class, "endPos");
+    private static final Field ROUTE_FINDER_TOTAL_TIME = locateField(RailwayDataRouteFinderModule.class, "totalTime");
+    private static final Field ROUTE_FINDER_COUNT = locateField(RailwayDataRouteFinderModule.class, "count");
+    private static final Field ROUTE_FINDER_START_MILLIS = locateField(RailwayDataRouteFinderModule.class, "startMillis");
+    private static final Field ROUTE_FINDER_TICK_STAGE = locateField(RailwayDataRouteFinderModule.class, "tickStage");
+    private static final Field ROUTE_FINDER_GLOBAL_BLACKLIST = locateField(RailwayDataRouteFinderModule.class, "globalBlacklist");
+    private static final Field ROUTE_FINDER_LOCAL_BLACKLIST = locateField(RailwayDataRouteFinderModule.class, "localBlacklist");
+    private static final Field ROUTE_FINDER_DATA_POS = locateField(RailwayDataRouteFinderModule.RouteFinderData.class, "pos");
+    private static final Field ROUTE_FINDER_DATA_DURATION = locateField(RailwayDataRouteFinderModule.RouteFinderData.class, "duration");
+    private static final Field ROUTE_FINDER_DATA_ROUTE_ID = locateField(RailwayDataRouteFinderModule.RouteFinderData.class, "routeId");
+    private static final Field ROUTE_FINDER_DATA_WAITING_TIME = locateField(RailwayDataRouteFinderModule.RouteFinderData.class, "waitingTime");
+    private static final Field ROUTE_FINDER_DATA_STATION_IDS = locateField(RailwayDataRouteFinderModule.RouteFinderData.class, "stationIds");
 
     private MtrDataMapper() {
     }
@@ -143,6 +186,208 @@ public final class MtrDataMapper {
                 buildStationPlatforms(context, station)
             )));
         return stations;
+    }
+
+    public static List<MtrModels.RouteFinderSnapshot> buildRouteFinderSnapshots(MtrDimensionSnapshot snapshot) {
+        DimensionContext context = DimensionContext.from(snapshot);
+        if (context == null || context.routes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<MtrModels.RouteFinderSnapshot> result = new ArrayList<>();
+        for (Route route : context.routes) {
+            List<RouteNode> nodes = buildRouteNodes(context, route);
+            if (!nodes.isEmpty()) {
+                result.add(new MtrModels.RouteFinderSnapshot(
+                    context.dimensionId,
+                    route.id,
+                    safeName(route.name),
+                    nodes
+                ));
+            }
+        }
+        return result;
+    }
+
+    public static List<MtrModels.ConnectionProfile> buildConnectionProfiles(MtrDimensionSnapshot snapshot) {
+        DimensionContext context = DimensionContext.from(snapshot);
+        if (context == null || context.cache == null || context.cache.platformConnections == null) {
+            return Collections.emptyList();
+        }
+        List<MtrModels.ConnectionProfile> result = new ArrayList<>();
+        Object rawConnections = readPlatformConnections(context.cache);
+        if (!(rawConnections instanceof Map)) {
+            return Collections.emptyList();
+        }
+        Map<?, ?> connections = (Map<?, ?>) rawConnections;
+        for (Map.Entry<?, ?> entry : connections.entrySet()) {
+            long fromPos = toLong(entry.getKey());
+            Object rawTargets = entry.getValue();
+            if (!(rawTargets instanceof Map)) {
+                continue;
+            }
+            Map<?, ?> targets = (Map<?, ?>) rawTargets;
+            for (Map.Entry<?, ?> targetEntry : targets.entrySet()) {
+                long toPos = toLong(targetEntry.getKey());
+                Object details = targetEntry.getValue();
+                long platformStart = extractPlatformStart(details);
+                Integer shortestDuration = extractShortestDuration(details);
+                Map<Long, Integer> durationInfo = extractDurationInfo(details);
+                Integer density = context.routeFinderModule != null
+                    ? extractConnectionDensity(context.routeFinderModule, fromPos, toPos)
+                    : null;
+                result.add(new MtrModels.ConnectionProfile(
+                    context.dimensionId,
+                    fromPos,
+                    toPos,
+                    platformStart,
+                    shortestDuration,
+                    durationInfo,
+                    density
+                ));
+            }
+        }
+        return result;
+    }
+
+    public static List<MtrModels.PlatformPosition> buildPlatformPositions(MtrDimensionSnapshot snapshot) {
+        DimensionContext context = DimensionContext.from(snapshot);
+        if (context == null || context.platforms.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<MtrModels.PlatformPosition> result = new ArrayList<>(context.platforms.size());
+        context.platforms.values().stream()
+            .sorted(Comparator.comparingLong(platform -> platform.id))
+            .forEach(platform -> {
+                Object firstPos = invokeSavedRailPosition(platform, 0);
+                Object secondPos = invokeSavedRailPosition(platform, 1);
+                Object midPos = invokeSavedRailMidPos(platform);
+                result.add(new MtrModels.PlatformPosition(
+                    context.dimensionId,
+                    platform.id,
+                    toBlockPosLong(firstPos),
+                    toBlockPosLong(secondPos),
+                    toBlockPosLong(midPos),
+                    toBlockPosLong(firstPos),
+                    toBlockPosLong(secondPos)
+                ));
+            });
+        return result;
+    }
+
+    public static List<MtrModels.RailCurveSegment> buildRailCurveSegments(MtrDimensionSnapshot snapshot) {
+        DimensionContext context = DimensionContext.from(snapshot);
+        if (context == null) {
+            return Collections.emptyList();
+        }
+        Map<Object, Map<Object, Rail>> rails = RailsFieldAccessor.get(context.railwayData);
+        if (rails.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<MtrModels.RailCurveSegment> result = new ArrayList<>();
+        for (Map.Entry<Object, Map<Object, Rail>> outer : rails.entrySet()) {
+            long from = encodeBlockPos(outer.getKey());
+            Map<Object, Rail> inner = outer.getValue();
+            if (inner == null) {
+                continue;
+            }
+            for (Map.Entry<Object, Rail> entry : inner.entrySet()) {
+                long to = encodeBlockPos(entry.getKey());
+                Rail rail = entry.getValue();
+                if (rail == null) {
+                    continue;
+                }
+                result.add(new MtrModels.RailCurveSegment(
+                    context.dimensionId,
+                    from,
+                    to,
+                    readRailType(rail),
+                    readTransportMode(rail),
+                    buildRailSegmentParams(rail, 1),
+                    buildRailSegmentParams(rail, 2)
+                ));
+            }
+        }
+        return result;
+    }
+
+    public static Optional<MtrModels.RoutefinderVersion> buildRoutefinderVersion(MtrDimensionSnapshot snapshot) {
+        DimensionContext context = DimensionContext.from(snapshot);
+        if (context == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new MtrModels.RoutefinderVersion(
+            context.dimensionId,
+            context.mtrVersion,
+            context.railwayDataVersion
+        ));
+    }
+
+    public static List<MtrModels.RouteFinderDataEntry> buildRouteFinderData(MtrDimensionSnapshot snapshot) {
+        DimensionContext context = DimensionContext.from(snapshot);
+        if (context == null || context.routeFinderModule == null) {
+            return Collections.emptyList();
+        }
+        List<MtrModels.RouteFinderDataEntry> result = new ArrayList<>();
+        collectRouteFinderData(result, context.dimensionId, context.routeFinderModule, ROUTE_FINDER_DATA_FIELD, "data");
+        collectRouteFinderData(result, context.dimensionId, context.routeFinderModule, ROUTE_FINDER_TEMP_DATA_FIELD, "temp");
+        return result;
+    }
+
+    public static Optional<MtrModels.RouteFinderModuleState> buildRouteFinderModuleState(MtrDimensionSnapshot snapshot) {
+        DimensionContext context = DimensionContext.from(snapshot);
+        if (context == null || context.routeFinderModule == null) {
+            return Optional.empty();
+        }
+        RailwayDataRouteFinderModule module = context.routeFinderModule;
+        return Optional.of(new MtrModels.RouteFinderModuleState(
+            context.dimensionId,
+            toBlockPosLong(readField(module, ROUTE_FINDER_START_POS)),
+            toBlockPosLong(readField(module, ROUTE_FINDER_END_POS)),
+            readIntegerField(module, ROUTE_FINDER_TOTAL_TIME),
+            readIntegerField(module, ROUTE_FINDER_COUNT),
+            readLongField(module, ROUTE_FINDER_START_MILLIS),
+            readEnumName(module, ROUTE_FINDER_TICK_STAGE),
+            toLongIntMap(readField(module, ROUTE_FINDER_GLOBAL_BLACKLIST)),
+            toLongIntMap(readField(module, ROUTE_FINDER_LOCAL_BLACKLIST))
+        ));
+    }
+
+    public static List<MtrModels.RouteFinderEdge> buildRouteFinderEdges(MtrDimensionSnapshot snapshot) {
+        DimensionContext context = DimensionContext.from(snapshot);
+        if (context == null) {
+            return Collections.emptyList();
+        }
+        List<MtrModels.RouteFinderDataEntry> entries = buildRouteFinderData(snapshot);
+        if (entries.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<MtrModels.RouteFinderEdge> result = new ArrayList<>();
+        int index = 0;
+        for (int i = 0; i < entries.size() - 1; i++) {
+            MtrModels.RouteFinderDataEntry current = entries.get(i);
+            MtrModels.RouteFinderDataEntry next = entries.get(i + 1);
+            if (current == null || next == null) {
+                continue;
+            }
+            if (current.getRouteId() != next.getRouteId() || !Objects.equals(current.getSource(), next.getSource())) {
+                continue;
+            }
+            long from = current.getPos();
+            long to = next.getPos();
+            Integer density = context.routeFinderModule != null
+                ? extractConnectionDensity(context.routeFinderModule, from, to)
+                : null;
+            result.add(new MtrModels.RouteFinderEdge(
+                context.dimensionId,
+                current.getRouteId(),
+                current.getSource(),
+                index++,
+                from,
+                to,
+                density
+            ));
+        }
+        return result;
     }
 
     public static NodePage buildNodePage(MtrDimensionSnapshot snapshot, String cursor, int limit) {
@@ -698,6 +943,10 @@ public final class MtrDataMapper {
     private static final class DimensionContext {
         final String dimensionId;
         final RailwayData railwayData;
+        final DataCache cache;
+        final RailwayDataRouteFinderModule routeFinderModule;
+        final String mtrVersion;
+        final Integer railwayDataVersion;
         final Map<Long, Station> stations;
         final Map<Long, Platform> platforms;
         final Map<Long, Station> platformToStation;
@@ -713,6 +962,10 @@ public final class MtrDataMapper {
         private DimensionContext(String dimensionId, RailwayData railwayData, DataCache cache) {
             this.dimensionId = dimensionId;
             this.railwayData = railwayData;
+            this.cache = cache;
+            this.routeFinderModule = railwayData.railwayDataRouteFinderModule;
+            this.mtrVersion = describeMtrVersion(railwayData);
+            this.railwayDataVersion = readRailwayDataVersion();
             this.stations = cache.stationIdMap != null ? cache.stationIdMap : Collections.emptyMap();
             this.platforms = cache.platformIdMap != null ? cache.platformIdMap : Collections.emptyMap();
             this.platformToStation = cache.platformIdToStation != null ? cache.platformIdToStation : Collections.emptyMap();
@@ -740,6 +993,32 @@ public final class MtrDataMapper {
                 LOGGER.warn("Failed to refresh MTR cache for dimension {}", snapshot.getDimensionId(), ex);
                 return null;
             }
+        }
+
+        private static String describeMtrVersion(RailwayData data) {
+            if (data == null) {
+                return null;
+            }
+            Package pkg = data.getClass().getPackage();
+            if (pkg == null) {
+                return null;
+            }
+            String version = pkg.getImplementationVersion();
+            return version != null ? version : pkg.getSpecificationVersion();
+        }
+
+        private static Integer readRailwayDataVersion() {
+            if (RAILWAY_DATA_VERSION == null) {
+                return null;
+            }
+            try {
+                Object value = RAILWAY_DATA_VERSION.get(null);
+                if (value instanceof Integer) {
+                    return (Integer) value;
+                }
+            } catch (IllegalAccessException ignored) {
+            }
+            return null;
         }
     }
 
@@ -1075,5 +1354,338 @@ public final class MtrDataMapper {
                 return null;
             }
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static long extractPlatformStart(Object details) {
+        if (details == null || CONNECTION_DETAILS_PLATFORM_START == null) {
+            return 0L;
+        }
+        try {
+            Object platform = CONNECTION_DETAILS_PLATFORM_START.get(details);
+            return toBlockPosLong(invokeSavedRailMidPos(platform));
+        } catch (IllegalAccessException ignored) {
+        }
+        return 0L;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<Long, Integer> extractDurationInfo(Object details) {
+        if (details == null || CONNECTION_DETAILS_DURATION_INFO == null) {
+            return Collections.emptyMap();
+        }
+        try {
+            Object value = CONNECTION_DETAILS_DURATION_INFO.get(details);
+            if (value instanceof Map) {
+                return Collections.unmodifiableMap(new HashMap<>((Map<Long, Integer>) value));
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+        return Collections.emptyMap();
+    }
+
+    private static Integer extractShortestDuration(Object details) {
+        if (details == null || CONNECTION_DETAILS_SHORT_DURATION == null) {
+            return null;
+        }
+        try {
+            Object value = CONNECTION_DETAILS_SHORT_DURATION.get(details);
+            if (value instanceof Integer) {
+                return (Integer) value;
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Integer extractConnectionDensity(RailwayDataRouteFinderModule module, long from, long to) {
+        if (module == null || ROUTE_FINDER_CONNECTION_DENSITY == null) {
+            return null;
+        }
+        try {
+            Object value = ROUTE_FINDER_CONNECTION_DENSITY.get(module);
+            if (!(value instanceof Map)) {
+                return null;
+            }
+            Map<?, ?> density = (Map<?, ?>) value;
+            Object target = density.get(from);
+            if (!(target instanceof Map)) {
+                return null;
+            }
+            Map<?, ?> targetMap = (Map<?, ?>) target;
+            Object densityValue = targetMap.get(to);
+            if (densityValue instanceof Number) {
+                return ((Number) densityValue).intValue();
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+        return null;
+    }
+
+    private static Object readPlatformConnections(DataCache cache) {
+        if (cache == null || DATA_CACHE_PLATFORM_CONNECTIONS == null) {
+            return null;
+        }
+        try {
+            return DATA_CACHE_PLATFORM_CONNECTIONS.get(cache);
+        } catch (IllegalAccessException ex) {
+            LOGGER.debug("Unable to read DataCache.platformConnections", ex);
+            return null;
+        }
+    }
+
+    private static void collectRouteFinderData(List<MtrModels.RouteFinderDataEntry> buffer, String dimensionId,
+                                               RailwayDataRouteFinderModule module, Field field, String source) {
+        if (buffer == null || module == null || field == null) {
+            return;
+        }
+        List<?> items = readListField(module, field);
+        if (items.isEmpty()) {
+            return;
+        }
+        for (Object item : items) {
+            MtrModels.RouteFinderDataEntry entry = buildRouteFinderDataEntry(item, dimensionId, source);
+            if (entry != null) {
+                buffer.add(entry);
+            }
+        }
+    }
+
+    private static List<?> readListField(Object target, Field field) {
+        if (target == null || field == null) {
+            return Collections.emptyList();
+        }
+        try {
+            Object value = field.get(target);
+            if (value instanceof List) {
+                return (List<?>) value;
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+        return Collections.emptyList();
+    }
+
+    private static MtrModels.RouteFinderDataEntry buildRouteFinderDataEntry(Object target, String dimensionId, String source) {
+        if (target == null) {
+            return null;
+        }
+        long pos = toBlockPosLong(readField(target, ROUTE_FINDER_DATA_POS));
+        Integer duration = readIntegerField(target, ROUTE_FINDER_DATA_DURATION);
+        Long routeId = readLongField(target, ROUTE_FINDER_DATA_ROUTE_ID);
+        Integer waitingTime = readIntegerField(target, ROUTE_FINDER_DATA_WAITING_TIME);
+        List<Long> stationIds = readLongListField(target, ROUTE_FINDER_DATA_STATION_IDS);
+        return new MtrModels.RouteFinderDataEntry(
+            dimensionId,
+            pos,
+            routeId != null ? routeId : 0L,
+            duration != null ? duration : 0,
+            waitingTime != null ? waitingTime : 0,
+            stationIds,
+            source
+        );
+    }
+
+    private static Integer readIntegerField(Object target, Field field) {
+        return toInteger(readField(target, field));
+    }
+
+    private static Long readLongField(Object target, Field field) {
+        Object value = readField(target, field);
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return null;
+    }
+
+    private static String readEnumName(Object target, Field field) {
+        Object value = readField(target, field);
+        return value != null ? value.toString() : null;
+    }
+
+    private static List<Long> readLongListField(Object target, Field field) {
+        List<?> raw = readListField(target, field);
+        if (raw.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> result = new ArrayList<>();
+        for (Object value : raw) {
+            if (value instanceof Number) {
+                result.add(((Number) value).longValue());
+            } else if (value != null) {
+                try {
+                    result.add(Long.parseLong(value.toString()));
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    private static Integer toInteger(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Integer.parseInt((String) value);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static Map<Long, Integer> toLongIntMap(Object value) {
+        if (!(value instanceof Map)) {
+            return Collections.emptyMap();
+        }
+        Map<?, ?> source = (Map<?, ?>) value;
+        Map<Long, Integer> result = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : source.entrySet()) {
+            Long key = toLong(entry.getKey());
+            Integer val = toInteger(entry.getValue());
+            if (key != null && val != null) {
+                result.put(key, val);
+            }
+        }
+        return Collections.unmodifiableMap(result);
+    }
+
+    private static Object readField(Object target, Field field) {
+        if (target == null || field == null) {
+            return null;
+        }
+        try {
+            return field.get(target);
+        } catch (IllegalAccessException ex) {
+            LOGGER.debug("Unable to read field {} on {}", field.getName(), target.getClass().getName(), ex);
+            return null;
+        }
+    }
+
+    private static Object invokeSavedRailPosition(Object rail, int index) {
+        if (!(rail instanceof SavedRailBase) || SAVED_RAIL_GET_POSITION == null) {
+            return null;
+        }
+        try {
+            return SAVED_RAIL_GET_POSITION.invoke(rail, index);
+        } catch (IllegalAccessException | InvocationTargetException ex) {
+            LOGGER.debug("Unable to read SavedRailBase position {}", index, ex);
+            return null;
+        }
+    }
+
+    private static Object invokeSavedRailMidPos(Object rail) {
+        if (!(rail instanceof SavedRailBase) || SAVED_RAIL_GET_MID_POS == null) {
+            return null;
+        }
+        try {
+            return SAVED_RAIL_GET_MID_POS.invoke(rail);
+        } catch (IllegalAccessException | InvocationTargetException ex) {
+            LOGGER.debug("Unable to read SavedRailBase midPos", ex);
+            return null;
+        }
+    }
+
+    private static long toBlockPosLong(Object blockPos) {
+        BlockPosCoord coord = BlockPosEncoding.coordinates(blockPos);
+        return coord != null ? coord.packed : 0L;
+    }
+
+    private static long encodeBlockPos(Object blockPos) {
+        return toBlockPosLong(blockPos);
+    }
+
+    private static long toLong(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return encodeBlockPos(value);
+    }
+
+    private static String readRailType(Rail rail) {
+        if (rail == null || RAIL_RAIL_TYPE == null) {
+            return "UNKNOWN";
+        }
+        try {
+            Object value = RAIL_RAIL_TYPE.get(rail);
+            if (value != null) {
+                return value.toString();
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+        return "UNKNOWN";
+    }
+
+    private static String readTransportMode(Rail rail) {
+        if (rail == null || RAIL_TRANSPORT_MODE == null) {
+            return "UNKNOWN";
+        }
+        try {
+            Object value = RAIL_TRANSPORT_MODE.get(rail);
+            if (value != null) {
+                return value.toString();
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+        return "UNKNOWN";
+    }
+
+    private static MtrModels.RailSegmentParams buildRailSegmentParams(Rail rail, int segment) {
+        if (rail == null) {
+            return null;
+        }
+        double h = readRailFieldDouble(segment == 1 ? RAIL_H1 : RAIL_H2, rail);
+        double k = readRailFieldDouble(segment == 1 ? RAIL_K1 : RAIL_K2, rail);
+        double r = readRailFieldDouble(segment == 1 ? RAIL_R1 : RAIL_R2, rail);
+        double tStart = readRailFieldDouble(segment == 1 ? RAIL_T_START_1 : RAIL_T_START_2, rail);
+        double tEnd = readRailFieldDouble(segment == 1 ? RAIL_T_END_1 : RAIL_T_END_2, rail);
+        boolean straight = readRailFieldBoolean(segment == 1 ? RAIL_IS_STRAIGHT_1 : RAIL_IS_STRAIGHT_2, rail);
+        boolean reverse = readRailFieldBoolean(segment == 1 ? RAIL_REVERSE_T_1 : RAIL_REVERSE_T_2, rail);
+        int yStart = readRailFieldInt(segment == 1 ? RAIL_Y_START : RAIL_Y_START, rail);
+        int yEnd = readRailFieldInt(segment == 1 ? RAIL_Y_END : RAIL_Y_END, rail);
+        return new MtrModels.RailSegmentParams(h, k, r, tStart, tEnd, reverse, straight, yStart, yEnd);
+    }
+
+    private static double readRailFieldDouble(Field field, Rail rail) {
+        if (field == null || rail == null) {
+            return 0D;
+        }
+        try {
+            Object value = field.get(rail);
+            if (value instanceof Number) {
+                return ((Number) value).doubleValue();
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+        return 0D;
+    }
+
+    private static int readRailFieldInt(Field field, Rail rail) {
+        if (field == null || rail == null) {
+            return 0;
+        }
+        try {
+            Object value = field.get(rail);
+            if (value instanceof Number) {
+                return ((Number) value).intValue();
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+        return 0;
+    }
+
+    private static boolean readRailFieldBoolean(Field field, Rail rail) {
+        if (field == null || rail == null) {
+            return false;
+        }
+        try {
+            Object value = field.get(rail);
+            if (value instanceof Boolean) {
+                return (Boolean) value;
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+        return false;
     }
 }

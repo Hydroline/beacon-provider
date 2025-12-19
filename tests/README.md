@@ -31,5 +31,6 @@ pnpm test:actions
 - 解析 `payload` 字段中的 Base64 messagepack，写入 `mtr_railway_snapshot_<dimension>.msgpack`；
 - 使用 `msgpack-lite` 解码 `.msgpack` 内容，并写出 `mtr_railway_snapshot_<dimension>.json`，方便直接比对结构；
 - 保留 `beacon:ping.json` 便于比对。
+- 顺序调用 `mtr:get_routefinder_snapshot`、`mtr:get_routefinder_data`、`mtr:get_routefinder_state`、`mtr:get_routefinder_edges`、`mtr:get_connection_profile`、`mtr:get_platform_position_map`、`mtr:get_rail_curve_segments`、`mtr:get_routefinder_version`，每次都把响应记录在 `mtr_<action>_<dimension>.json` 供调试参考；
 
 你可直接用 `pnpm test:actions` 生成的 `.msgpack` 输入你自己的解析器，进一步还原 `stations`/`routes`/`rails` 等结构。

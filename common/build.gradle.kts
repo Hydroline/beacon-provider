@@ -26,6 +26,7 @@ dependencies {
     compileOnly("io.netty:netty-all:4.1.111.Final")
     compileOnly(files(architecturyJarFile).builtBy(downloadArchitecturyJar))
     compileOnly(files(mtrCommonJar))
+    compileOnly("it.unimi.dsi:fastutil:8.5.9")
 }
 
 java {

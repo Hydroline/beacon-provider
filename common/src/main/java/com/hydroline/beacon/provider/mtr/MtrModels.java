@@ -1,7 +1,10 @@
 package com.hydroline.beacon.provider.mtr;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -641,5 +644,428 @@ public final class MtrModels {
             return Collections.emptyList();
         }
         return Collections.unmodifiableList(new java.util.ArrayList<>(source));
+    }
+
+    public static final class RouteFinderSnapshot {
+        private final String dimensionId;
+        private final long routeId;
+        private final String routeName;
+        private final List<RouteNode> nodes;
+
+        public RouteFinderSnapshot(String dimensionId, long routeId, String routeName, List<RouteNode> nodes) {
+            this.dimensionId = dimensionId;
+            this.routeId = routeId;
+            this.routeName = routeName;
+            this.nodes = copyList(nodes);
+        }
+
+        public String getDimensionId() {
+            return dimensionId;
+        }
+
+        public long getRouteId() {
+            return routeId;
+        }
+
+        public String getRouteName() {
+            return routeName;
+        }
+
+        public List<RouteNode> getNodes() {
+            return nodes;
+        }
+    }
+
+    public static final class ConnectionProfile {
+        private final String dimensionId;
+        private final long fromPos;
+        private final long toPos;
+        private final long platformStartPos;
+        private final Integer shortestDuration;
+        private final Map<Long, Integer> durationInfo;
+        private final Integer connectionDensity;
+
+        public ConnectionProfile(String dimensionId, long fromPos, long toPos, long platformStartPos,
+                                 Integer shortestDuration, Map<Long, Integer> durationInfo,
+                                 Integer connectionDensity) {
+            this.dimensionId = dimensionId;
+            this.fromPos = fromPos;
+            this.toPos = toPos;
+            this.platformStartPos = platformStartPos;
+            this.shortestDuration = shortestDuration;
+            this.durationInfo = durationInfo == null ? Collections.emptyMap() : Collections.unmodifiableMap(new java.util.HashMap<>(durationInfo));
+            this.connectionDensity = connectionDensity;
+        }
+
+        public String getDimensionId() {
+            return dimensionId;
+        }
+
+        public long getFromPos() {
+            return fromPos;
+        }
+
+        public long getToPos() {
+            return toPos;
+        }
+
+        public long getPlatformStartPos() {
+            return platformStartPos;
+        }
+
+        public Optional<Integer> getShortestDuration() {
+            return Optional.ofNullable(shortestDuration);
+        }
+
+        public Map<Long, Integer> getDurationInfo() {
+            return durationInfo;
+        }
+
+        public Optional<Integer> getConnectionDensity() {
+            return Optional.ofNullable(connectionDensity);
+        }
+    }
+
+    public static final class PlatformPosition {
+        private final String dimensionId;
+        private final long platformId;
+        private final long pos1;
+        private final long pos2;
+        private final long midPos;
+        private final long platformStart;
+        private final long platformEnd;
+
+        public PlatformPosition(String dimensionId, long platformId, long pos1, long pos2, long midPos,
+                                long platformStart, long platformEnd) {
+            this.dimensionId = dimensionId;
+            this.platformId = platformId;
+            this.pos1 = pos1;
+            this.pos2 = pos2;
+            this.midPos = midPos;
+            this.platformStart = platformStart;
+            this.platformEnd = platformEnd;
+        }
+
+        public String getDimensionId() {
+            return dimensionId;
+        }
+
+        public long getPlatformId() {
+            return platformId;
+        }
+
+        public long getPos1() {
+            return pos1;
+        }
+
+        public long getPos2() {
+            return pos2;
+        }
+
+        public long getMidPos() {
+            return midPos;
+        }
+
+        public long getPlatformStart() {
+            return platformStart;
+        }
+
+        public long getPlatformEnd() {
+            return platformEnd;
+        }
+    }
+
+    public static final class RailCurveSegment {
+        private final String dimensionId;
+        private final long fromPos;
+        private final long toPos;
+        private final String railType;
+        private final String transportMode;
+        private final RailSegmentParams segment1;
+        private final RailSegmentParams segment2;
+
+        public RailCurveSegment(String dimensionId, long fromPos, long toPos, String railType,
+                                String transportMode, RailSegmentParams segment1, RailSegmentParams segment2) {
+            this.dimensionId = dimensionId;
+            this.fromPos = fromPos;
+            this.toPos = toPos;
+            this.railType = railType;
+            this.transportMode = transportMode;
+            this.segment1 = segment1;
+            this.segment2 = segment2;
+        }
+
+        public String getDimensionId() {
+            return dimensionId;
+        }
+
+        public long getFromPos() {
+            return fromPos;
+        }
+
+        public long getToPos() {
+            return toPos;
+        }
+
+        public String getRailType() {
+            return railType;
+        }
+
+        public String getTransportMode() {
+            return transportMode;
+        }
+
+        public RailSegmentParams getSegment1() {
+            return segment1;
+        }
+
+        public RailSegmentParams getSegment2() {
+            return segment2;
+        }
+    }
+
+    public static final class RailSegmentParams {
+        private final double h;
+        private final double k;
+        private final double r;
+        private final double tStart;
+        private final double tEnd;
+        private final boolean reverse;
+        private final boolean straight;
+        private final int yStart;
+        private final int yEnd;
+
+        public RailSegmentParams(double h, double k, double r, double tStart, double tEnd,
+                                 boolean reverse, boolean straight, int yStart, int yEnd) {
+            this.h = h;
+            this.k = k;
+            this.r = r;
+            this.tStart = tStart;
+            this.tEnd = tEnd;
+            this.reverse = reverse;
+            this.straight = straight;
+            this.yStart = yStart;
+            this.yEnd = yEnd;
+        }
+
+        public double getH() {
+            return h;
+        }
+
+        public double getK() {
+            return k;
+        }
+
+        public double getR() {
+            return r;
+        }
+
+        public double getTStart() {
+            return tStart;
+        }
+
+        public double getTEnd() {
+            return tEnd;
+        }
+
+        public boolean isReverse() {
+            return reverse;
+        }
+
+        public boolean isStraight() {
+            return straight;
+        }
+
+        public int getYStart() {
+            return yStart;
+        }
+
+        public int getYEnd() {
+            return yEnd;
+        }
+    }
+
+    public static final class RoutefinderVersion {
+        private final String dimensionId;
+        private final String mtrVersion;
+        private final Integer railwayDataVersion;
+
+        public RoutefinderVersion(String dimensionId, String mtrVersion, Integer railwayDataVersion) {
+            this.dimensionId = dimensionId;
+            this.mtrVersion = mtrVersion;
+            this.railwayDataVersion = railwayDataVersion;
+        }
+
+        public String getDimensionId() {
+            return dimensionId;
+        }
+
+        public String getMtrVersion() {
+            return mtrVersion;
+        }
+
+        public Optional<Integer> getRailwayDataVersion() {
+            return Optional.ofNullable(railwayDataVersion);
+        }
+    }
+
+    public static final class RouteFinderDataEntry {
+        private final String dimensionId;
+        private final long pos;
+        private final long routeId;
+        private final int duration;
+        private final int waitingTime;
+        private final List<Long> stationIds;
+        private final String source;
+
+        public RouteFinderDataEntry(String dimensionId, long pos, long routeId, int duration, int waitingTime,
+                                    List<Long> stationIds, String source) {
+            this.dimensionId = dimensionId;
+            this.pos = pos;
+            this.routeId = routeId;
+            this.duration = duration;
+            this.waitingTime = waitingTime;
+            this.stationIds = stationIds == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(stationIds));
+            this.source = source;
+        }
+
+        public String getDimensionId() {
+            return dimensionId;
+        }
+
+        public long getPos() {
+            return pos;
+        }
+
+        public long getRouteId() {
+            return routeId;
+        }
+
+        public int getDuration() {
+            return duration;
+        }
+
+        public int getWaitingTime() {
+            return waitingTime;
+        }
+
+        public List<Long> getStationIds() {
+            return stationIds;
+        }
+
+        public String getSource() {
+            return source;
+        }
+    }
+
+    public static final class RouteFinderModuleState {
+        private final String dimensionId;
+        private final Optional<Long> startPos;
+        private final Optional<Long> endPos;
+        private final Optional<Integer> totalTime;
+        private final Optional<Integer> count;
+        private final Optional<Long> startMillis;
+        private final Optional<String> tickStage;
+        private final Map<Long, Integer> globalBlacklist;
+        private final Map<Long, Integer> localBlacklist;
+
+        public RouteFinderModuleState(String dimensionId, long startPos, long endPos, Integer totalTime,
+                                      Integer count, Long startMillis, String tickStage,
+                                      Map<Long, Integer> globalBlacklist, Map<Long, Integer> localBlacklist) {
+            this.dimensionId = dimensionId;
+            this.startPos = startPos != 0 ? Optional.of(startPos) : Optional.empty();
+            this.endPos = endPos != 0 ? Optional.of(endPos) : Optional.empty();
+            this.totalTime = Optional.ofNullable(totalTime);
+            this.count = Optional.ofNullable(count);
+            this.startMillis = Optional.ofNullable(startMillis);
+            this.tickStage = Optional.ofNullable(tickStage);
+            this.globalBlacklist = globalBlacklist == null ? Collections.emptyMap() : globalBlacklist;
+            this.localBlacklist = localBlacklist == null ? Collections.emptyMap() : localBlacklist;
+        }
+
+        public String getDimensionId() {
+            return dimensionId;
+        }
+
+        public Optional<Long> getStartPos() {
+            return startPos;
+        }
+
+        public Optional<Long> getEndPos() {
+            return endPos;
+        }
+
+        public Optional<Integer> getTotalTime() {
+            return totalTime;
+        }
+
+        public Optional<Integer> getCount() {
+            return count;
+        }
+
+        public Optional<Long> getStartMillis() {
+            return startMillis;
+        }
+
+        public Optional<String> getTickStage() {
+            return tickStage;
+        }
+
+        public Map<Long, Integer> getGlobalBlacklist() {
+            return globalBlacklist;
+        }
+
+        public Map<Long, Integer> getLocalBlacklist() {
+            return localBlacklist;
+        }
+    }
+
+    public static final class RouteFinderEdge {
+        private final String dimensionId;
+        private final long routeId;
+        private final String source;
+        private final int index;
+        private final long fromPos;
+        private final long toPos;
+        private final Integer connectionDensity;
+
+        public RouteFinderEdge(String dimensionId, long routeId, String source, int index,
+                               long fromPos, long toPos, Integer connectionDensity) {
+            this.dimensionId = dimensionId;
+            this.routeId = routeId;
+            this.source = source;
+            this.index = index;
+            this.fromPos = fromPos;
+            this.toPos = toPos;
+            this.connectionDensity = connectionDensity;
+        }
+
+        public String getDimensionId() {
+            return dimensionId;
+        }
+
+        public long getRouteId() {
+            return routeId;
+        }
+
+        public String getSource() {
+            return source;
+        }
+
+        public int getIndex() {
+            return index;
+        }
+
+        public long getFromPos() {
+            return fromPos;
+        }
+
+        public long getToPos() {
+            return toPos;
+        }
+
+        public Optional<Integer> getConnectionDensity() {
+            return Optional.ofNullable(connectionDensity);
+        }
     }
 }

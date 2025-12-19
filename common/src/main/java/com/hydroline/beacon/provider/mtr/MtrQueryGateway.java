@@ -45,6 +45,58 @@ public interface MtrQueryGateway {
         return Collections.emptyList();
     }
 
+    default List<MtrModels.RouteFinderSnapshot> fetchRouteFinderSnapshots(String dimensionId) {
+        return MtrSnapshotSupport.collectFromSnapshots(MtrSnapshotSupport.filterSnapshots(fetchSnapshots(), dimensionId), MtrDataMapper::buildRouteFinderSnapshots);
+    }
+
+    default List<MtrModels.ConnectionProfile> fetchConnectionProfiles(String dimensionId) {
+        return MtrSnapshotSupport.collectFromSnapshots(MtrSnapshotSupport.filterSnapshots(fetchSnapshots(), dimensionId), MtrDataMapper::buildConnectionProfiles);
+    }
+
+    default List<MtrModels.PlatformPosition> fetchPlatformPositions(String dimensionId) {
+        return MtrSnapshotSupport.collectFromSnapshots(MtrSnapshotSupport.filterSnapshots(fetchSnapshots(), dimensionId), MtrDataMapper::buildPlatformPositions);
+    }
+
+    default List<MtrModels.RailCurveSegment> fetchRailCurveSegments(String dimensionId) {
+        return MtrSnapshotSupport.collectFromSnapshots(MtrSnapshotSupport.filterSnapshots(fetchSnapshots(), dimensionId), MtrDataMapper::buildRailCurveSegments);
+    }
+
+    default Optional<MtrModels.RoutefinderVersion> fetchRoutefinderVersion(String dimensionId) {
+        List<MtrDimensionSnapshot> snapshots = MtrSnapshotSupport.filterSnapshots(fetchSnapshots(), dimensionId);
+        for (MtrDimensionSnapshot snapshot : snapshots) {
+            Optional<MtrModels.RoutefinderVersion> version = MtrDataMapper.buildRoutefinderVersion(snapshot);
+            if (version.isPresent()) {
+                return version;
+            }
+        }
+        return Optional.empty();
+    }
+
+    default List<MtrModels.RouteFinderDataEntry> fetchRouteFinderData(String dimensionId) {
+        return MtrSnapshotSupport.collectFromSnapshots(
+            MtrSnapshotSupport.filterSnapshots(fetchSnapshots(), dimensionId),
+            MtrDataMapper::buildRouteFinderData
+        );
+    }
+
+    default Optional<MtrModels.RouteFinderModuleState> fetchRouteFinderModuleState(String dimensionId) {
+        List<MtrDimensionSnapshot> snapshots = MtrSnapshotSupport.filterSnapshots(fetchSnapshots(), dimensionId);
+        for (MtrDimensionSnapshot snapshot : snapshots) {
+            Optional<MtrModels.RouteFinderModuleState> state = MtrDataMapper.buildRouteFinderModuleState(snapshot);
+            if (state.isPresent()) {
+                return state;
+            }
+        }
+        return Optional.empty();
+    }
+
+    default List<MtrModels.RouteFinderEdge> fetchRouteFinderEdges(String dimensionId) {
+        return MtrSnapshotSupport.collectFromSnapshots(
+            MtrSnapshotSupport.filterSnapshots(fetchSnapshots(), dimensionId),
+            MtrDataMapper::buildRouteFinderEdges
+        );
+    }
+
     MtrQueryGateway UNAVAILABLE = new MtrQueryGateway() {
         @Override
         public boolean isReady() {

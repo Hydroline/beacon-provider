@@ -19,6 +19,16 @@ const DIMENSION = process.env.PROVIDER_MTR_DIMENSION || "minecraft:overworld";
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || "15000");
 const OUTPUT_DIR = path.resolve(process.env.OUTPUT_DIR || path.join(__dirname, "output"));
 const ACTION_NAME = "mtr:get_railway_snapshot";
+const EXTRA_ACTIONS = [
+  { name: "mtr:get_routefinder_snapshot", slug: "mtr_routefinder_snapshot" },
+  { name: "mtr:get_routefinder_data", slug: "mtr_routefinder_data" },
+  { name: "mtr:get_routefinder_state", slug: "mtr_routefinder_state" },
+  { name: "mtr:get_routefinder_edges", slug: "mtr_routefinder_edges" },
+  { name: "mtr:get_connection_profile", slug: "mtr_connection_profile" },
+  { name: "mtr:get_platform_position_map", slug: "mtr_platform_positions" },
+  { name: "mtr:get_rail_curve_segments", slug: "mtr_rail_curve_segments" },
+  { name: "mtr:get_routefinder_version", slug: "mtr_routefinder_version" }
+];
 
 async function main() {
   console.log(`Connecting to ${HOST}:${PORT} ...`);
@@ -66,6 +76,15 @@ async function main() {
     }
 
     console.log(`Done. Files written to ${OUTPUT_DIR}`);
+    for (const action of EXTRA_ACTIONS) {
+      try {
+        const additional = await client.request(action.name, DIMENSION ? { dimension: DIMENSION } : {});
+        const target = path.join(OUTPUT_DIR, `${action.slug}_${dimensionToSlug(DIMENSION || "all")}.json`);
+        await writeJson(target, additional);
+      } catch (err) {
+        console.warn(`Action ${action.name} failed: ${err.message}`);
+      }
+    }
   } catch (err) {
     console.error("Test run failed:", err.message);
     process.exitCode = 1;
