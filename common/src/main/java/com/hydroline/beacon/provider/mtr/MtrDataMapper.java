@@ -37,6 +37,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import it.unimi.dsi.fastutil.longs.Long2IntMap;
+import it.unimi.dsi.fastutil.longs.LongList;
 import mtr.data.AreaBase;
 import mtr.data.DataCache;
 import mtr.data.Depot;
@@ -1504,22 +1506,45 @@ public final class MtrDataMapper {
     }
 
     private static List<Long> readLongListField(Object target, Field field) {
-        List<?> raw = readListField(target, field);
-        if (raw.isEmpty()) {
+        Object value = readField(target, field);
+        if (value == null) {
             return Collections.emptyList();
         }
-        List<Long> result = new ArrayList<>();
-        for (Object value : raw) {
-            if (value instanceof Number) {
-                result.add(((Number) value).longValue());
-            } else if (value != null) {
-                try {
-                    result.add(Long.parseLong(value.toString()));
-                } catch (NumberFormatException ignored) {
+        List<Long> result = toLongListFromObject(value);
+        return result.isEmpty() ? Collections.emptyList() : result;
+    }
+
+    private static List<Long> toLongListFromObject(Object value) {
+        if (value instanceof LongList) {
+            LongList list = (LongList) value;
+            if (list.isEmpty()) {
+                return Collections.emptyList();
+            }
+            List<Long> result = new ArrayList<>(list.size());
+            for (int i = 0; i < list.size(); i++) {
+                result.add(list.getLong(i));
+            }
+            return Collections.unmodifiableList(result);
+        }
+        if (value instanceof List) {
+            List<?> raw = (List<?>) value;
+            if (raw.isEmpty()) {
+                return Collections.emptyList();
+            }
+            List<Long> result = new ArrayList<>(raw.size());
+            for (Object item : raw) {
+                if (item instanceof Number) {
+                    result.add(((Number) item).longValue());
+                } else if (item != null) {
+                    try {
+                        result.add(Long.parseLong(item.toString()));
+                    } catch (NumberFormatException ignored) {
+                    }
                 }
             }
+            return Collections.unmodifiableList(result);
         }
-        return Collections.unmodifiableList(result);
+        return Collections.emptyList();
     }
 
     private static Integer toInteger(Object value) {
@@ -1537,6 +1562,15 @@ public final class MtrDataMapper {
 
     private static Map<Long, Integer> toLongIntMap(Object value) {
         if (!(value instanceof Map)) {
+            if (value instanceof Long2IntMap) {
+                Long2IntMap fastMap = (Long2IntMap) value;
+                if (fastMap.isEmpty()) {
+                    return Collections.emptyMap();
+                }
+                Map<Long, Integer> result = new LinkedHashMap<>();
+                fastMap.long2IntEntrySet().forEach(entry -> result.put(entry.getLongKey(), entry.getIntValue()));
+                return Collections.unmodifiableMap(result);
+            }
             return Collections.emptyMap();
         }
         Map<?, ?> source = (Map<?, ?>) value;
