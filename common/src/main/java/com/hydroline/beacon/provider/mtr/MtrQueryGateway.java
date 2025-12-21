@@ -37,6 +37,10 @@ public interface MtrQueryGateway {
 
     List<StationInfo> fetchStations(String dimensionId);
 
+    /**
+     * Returns the list of trains in the requested dimension/route.
+     * If {@code dimensionId} is empty or {@code null}, all loaded dimensions are scanned.
+     */
     List<TrainStatus> fetchRouteTrains(String dimensionId, long routeId);
 
     List<TrainStatus> fetchDepotTrains(String dimensionId, long depotId);

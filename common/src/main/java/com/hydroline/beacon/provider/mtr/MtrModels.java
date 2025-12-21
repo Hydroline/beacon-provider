@@ -531,14 +531,25 @@ public final class MtrModels {
         private final int trainCars;
         private final int currentStationIndex;
         private final Optional<Integer> delayMillis;
+        private final Optional<String> routeName;
+        private final Optional<String> destination;
+        private final Optional<String> routeLabel;
+        private final Optional<String> circular;
+        private final Optional<Integer> routeColor;
 
         public ScheduleEntry(long routeId, long arrivalMillis, int trainCars, int currentStationIndex,
-                             Integer delayMillis) {
+                             Integer delayMillis, String routeName, String destination, String routeLabel,
+                             String circular, Integer routeColor) {
             this.routeId = routeId;
             this.arrivalMillis = arrivalMillis;
             this.trainCars = trainCars;
             this.currentStationIndex = currentStationIndex;
             this.delayMillis = Optional.ofNullable(delayMillis);
+            this.routeName = Optional.ofNullable(routeName);
+            this.destination = Optional.ofNullable(destination);
+            this.routeLabel = Optional.ofNullable(routeLabel);
+            this.circular = Optional.ofNullable(circular);
+            this.routeColor = Optional.ofNullable(routeColor);
         }
 
         public long getRouteId() {
@@ -560,11 +571,32 @@ public final class MtrModels {
         public Optional<Integer> getDelayMillis() {
             return delayMillis;
         }
+
+        public Optional<String> getRouteName() {
+            return routeName;
+        }
+
+        public Optional<String> getDestination() {
+            return destination;
+        }
+
+        public Optional<String> getRouteLabel() {
+            return routeLabel;
+        }
+
+        public Optional<String> getCircular() {
+            return circular;
+        }
+
+        public Optional<Integer> getRouteColor() {
+            return routeColor;
+        }
     }
 
     public static final class TrainStatus {
         private final String dimensionId;
         private final java.util.UUID trainUuid;
+        private final String trainId;
         private final long routeId;
         private final Optional<Long> depotId;
         private final String transportMode;
@@ -573,13 +605,16 @@ public final class MtrModels {
         private final Optional<Integer> delayMillis;
         private final String segmentCategory;
         private final double progress;
+        private final Optional<Long> railId;
         private final Optional<NodeInfo> node;
 
-        public TrainStatus(String dimensionId, java.util.UUID trainUuid, long routeId, Long depotId,
-                           String transportMode, Long currentStationId, Long nextStationId, Integer delayMillis,
-                           String segmentCategory, double progress, NodeInfo node) {
+        public TrainStatus(String dimensionId, java.util.UUID trainUuid, String trainId, long routeId,
+                           Long depotId, String transportMode, Long currentStationId, Long nextStationId,
+                           Integer delayMillis, String segmentCategory, double progress, Long railId,
+                           NodeInfo node) {
             this.dimensionId = Objects.requireNonNull(dimensionId, "dimensionId");
             this.trainUuid = trainUuid;
+            this.trainId = trainId == null ? "" : trainId;
             this.routeId = routeId;
             this.depotId = Optional.ofNullable(depotId);
             this.transportMode = transportMode == null ? "UNKNOWN" : transportMode;
@@ -588,6 +623,7 @@ public final class MtrModels {
             this.delayMillis = Optional.ofNullable(delayMillis);
             this.segmentCategory = segmentCategory == null ? "UNKNOWN" : segmentCategory;
             this.progress = progress;
+            this.railId = Optional.ofNullable(railId);
             this.node = Optional.ofNullable(node);
         }
 
@@ -597,6 +633,10 @@ public final class MtrModels {
 
         public java.util.UUID getTrainUuid() {
             return trainUuid;
+        }
+
+        public String getTrainId() {
+            return trainId;
         }
 
         public long getRouteId() {
@@ -629,6 +669,10 @@ public final class MtrModels {
 
         public double getProgress() {
             return progress;
+        }
+
+        public Optional<Long> getRailId() {
+            return railId;
         }
 
         public Optional<NodeInfo> getNode() {

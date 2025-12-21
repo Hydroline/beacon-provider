@@ -106,9 +106,11 @@ public final class FabricMtrQueryGateway implements MtrQueryGateway {
     @Override
     public List<TrainStatus> fetchRouteTrains(String dimensionId, long routeId) {
         List<MtrDimensionSnapshot> snapshots = captureSnapshots();
-        return findSnapshot(snapshots, dimensionId)
-            .map(snapshot -> MtrDataMapper.buildRouteTrains(snapshot, routeId))
-            .orElseGet(Collections::emptyList);
+        return snapshots.stream()
+            .filter(snapshot -> dimensionId == null || dimensionId.isEmpty()
+                || snapshot.getDimensionId().equals(dimensionId))
+            .flatMap(snapshot -> MtrDataMapper.buildRouteTrains(snapshot, routeId).stream())
+            .collect(Collectors.toList());
     }
 
     @Override

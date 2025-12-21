@@ -56,6 +56,10 @@
 | `mtr:get_network_snapshot` | `{ "dimension": "minecraft:overworld" }`                   | 该维度的 `routes`、`stations`、`platforms`、`depots`，以及 Route-Platform、Platform-Station、Depot-Route 的关联表。 |
 | `mtr:get_depot_schedule`   | `{ "dimension": "minecraft:overworld", "depotId": 123 }`   | 车厂的 `departures`、`platformTimes`、`useRealTime`、`repeatInfinitely`、`nextDepartureMillis`。                    |
 | `mtr:get_station_arrivals` | `{ "dimension": "minecraft:overworld", "stationId": 456 }` | `getSchedulesForStation` 结果 + 匹配到的 `TrainDelay`，并附带线路/站台元信息。                                      |
+| `mtr:get_route_trains`     | `{ "dimension": "minecraft:overworld", "routeId": 123 }`   | 报告该维度/线路上的列车状态，包含 `trainUuid`/`trainId`、`railId`、`currentStationId`、`nextStationId`、`delayMillis`。      |
+| `mtr:get_station_schedule` | `{ "dimension": "minecraft:overworld", "stationId": 456 }` | 按维度/站台返回时刻表（含 `routeName`、`arrivalMillis`、`currentStationIndex`、`platformName`）。                          |
+| `mtr:get_depot_trains`     | `{ "dimension": "minecraft:overworld" }`                   | 列出该维度所有 depot 及其 `departures`/`routeIds`，并附带 `fetchDepotTrains` 返回的列车状态（`trainUuid`、`routeId`、`railId`、`progress`）等。 |
+| `mtr:get_all_station_schedules` | `{}`                                              | 返回所有维度所有站点的 station/platform 时刻表，附带平台名称与到站记录（`arrivalMillis`、`routeId`、`trainCars`、`delayMillis`）。 |
 
 > 建议所有返回值只传输需要的字段，避免一次性传输整个 NBT。
 

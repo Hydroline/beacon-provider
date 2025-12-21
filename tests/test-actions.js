@@ -19,6 +19,14 @@ const DIMENSION = process.env.PROVIDER_MTR_DIMENSION || "minecraft:overworld";
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || "15000");
 const OUTPUT_DIR = path.resolve(process.env.OUTPUT_DIR || path.join(__dirname, "output"));
 const ACTION_NAME = "mtr:get_railway_snapshot";
+const ROUTE_ID = Number(process.env.PROVIDER_MTR_ROUTE_ID || "0");
+const STATION_ID = process.env.PROVIDER_MTR_STATION_ID
+  ? Number(process.env.PROVIDER_MTR_STATION_ID)
+  : null;
+const STATION_PLATFORM_ID = process.env.PROVIDER_MTR_PLATFORM_ID
+  ? Number(process.env.PROVIDER_MTR_PLATFORM_ID)
+  : null;
+const DEPOT_ID = process.env.PROVIDER_MTR_DEPOT_ID ? Number(process.env.PROVIDER_MTR_DEPOT_ID) : 0;
 
 async function main() {
   console.log(`Connecting to ${HOST}:${PORT} ...`);
@@ -65,6 +73,11 @@ async function main() {
       }
     }
 
+    const dimensionSlug = dimensionToSlug(DIMENSION || "all");
+    await writeRouteTrainsOutput(client, dimensionSlug);
+    await writeStationScheduleOutput(client, dimensionSlug);
+    await writeDepotTrainsOutput(client, dimensionSlug);
+    await writeAllStationSchedulesOutput(client, dimensionSlug);
     console.log(`Done. Files written to ${OUTPUT_DIR}`);
   } catch (err) {
     console.error("Test run failed:", err.message);
@@ -72,6 +85,67 @@ async function main() {
   } finally {
     client.close();
   }
+}
+
+
+async function writeRouteTrainsOutput(client, dimensionSlug) {
+  const payload = {
+    routeId: ROUTE_ID,
+  };
+  if (DIMENSION) {
+    payload.dimension = DIMENSION;
+  }
+  const response = await client.request("mtr:get_route_trains", payload);
+  const slug = `${dimensionSlug}_route_${routeSuffix(ROUTE_ID)}`;
+  const target = path.join(OUTPUT_DIR, `mtr_route_trains_${slug}.json`);
+  await writeJson(target, response);
+}
+
+function routeSuffix(routeId) {
+  return routeId > 0 ? String(routeId) : "all";
+}
+
+async function writeStationScheduleOutput(client, dimensionSlug) {
+  if (STATION_ID == null) {
+    console.log("Skipping station schedule (PROVIDER_MTR_STATION_ID not set)");
+    return;
+  }
+  const payload = {
+    stationId: STATION_ID,
+  };
+  if (DIMENSION) {
+    payload.dimension = DIMENSION;
+  }
+  if (STATION_PLATFORM_ID != null) {
+    payload.platformId = STATION_PLATFORM_ID;
+  }
+  const response = await client.request("mtr:get_station_schedule", payload);
+  const slug = `${dimensionSlug}_station_${STATION_ID}`;
+  const target = path.join(OUTPUT_DIR, `mtr_station_schedule_${slug}.json`);
+  await writeJson(target, response);
+}
+
+async function writeDepotTrainsOutput(client, dimensionSlug) {
+  const payload = {
+    depotId: DEPOT_ID,
+  };
+  if (DIMENSION) {
+    payload.dimension = DIMENSION;
+  }
+  const response = await client.request("mtr:get_depot_trains", payload);
+  const suffix = DEPOT_ID > 0 ? `depot_${DEPOT_ID}` : "all";
+  const target = path.join(OUTPUT_DIR, `mtr_depot_trains_${dimensionSlug}_${suffix}.json`);
+  await writeJson(target, response);
+}
+
+async function writeAllStationSchedulesOutput(client, dimensionSlug) {
+  const payload = {};
+  if (DIMENSION) {
+    payload.dimension = DIMENSION;
+  }
+  const response = await client.request("mtr:get_all_station_schedules", payload);
+  const target = path.join(OUTPUT_DIR, `mtr_all_station_schedules_${dimensionSlug}.json`);
+  await writeJson(target, response);
 }
 export class GatewayClient {
   constructor({ host, port, token, timeoutMs }) {

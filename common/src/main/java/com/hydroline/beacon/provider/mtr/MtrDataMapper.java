@@ -67,6 +67,9 @@ public final class MtrDataMapper {
     private static final Field SIDING_DEPOT = locateField(Siding.class, "depot");
     private static final Field TRAIN_SERVER_ROUTE_ID = locateField(TrainServer.class, "routeId");
     private static final Field TRAIN_NEXT_STOPPING_INDEX = locateField(Train.class, "nextStoppingIndex");
+    private static final Field TRAIN_PATH_FIELD = locateField(Train.class, "path");
+    private static final Class<?> PATH_DATA_CLASS = resolvePathDataClass();
+    private static final Field PATH_DATA_SAVED_RAIL_BASE_ID = locatePathDataField("savedRailBaseId");
 
     private MtrDataMapper() {
     }
@@ -178,7 +181,7 @@ public final class MtrDataMapper {
         List<PlatformTimetable> platforms = scheduleMap.entrySet().stream()
             .filter(entry -> platformId == null || Objects.equals(entry.getKey(), platformId))
             .sorted(Map.Entry.comparingByKey())
-            .map(entry -> new PlatformTimetable(entry.getKey(), toScheduleEntries(entry.getValue())))
+            .map(entry -> new PlatformTimetable(entry.getKey(), toScheduleEntries(context, entry.getValue())))
             .collect(Collectors.toList());
         if (platforms.isEmpty()) {
             return Optional.empty();
@@ -404,9 +407,11 @@ public final class MtrDataMapper {
         String segmentCategory = train.getIsOnRoute() ? "ROUTE" : "DEPOT";
         double progress = normalizeRailProgress(train);
         UUID uuid = resolveTrainUuid(context.dimensionId, train);
+        Optional<Long> railId = resolveRailSegmentId(train);
         return new TrainStatus(
             context.dimensionId,
             uuid,
+            train.trainId,
             routeId,
             depotId,
             describeTransportMode(train.transportMode),
@@ -415,6 +420,7 @@ public final class MtrDataMapper {
             null,
             segmentCategory,
             progress,
+            railId.orElse(null),
             null
         );
     }
@@ -499,13 +505,34 @@ public final class MtrDataMapper {
         return nodes;
     }
 
-    private static List<ScheduleEntry> toScheduleEntries(List<mtr.data.ScheduleEntry> entries) {
+    private static List<ScheduleEntry> toScheduleEntries(DimensionContext context, List<mtr.data.ScheduleEntry> entries) {
         if (entries == null || entries.isEmpty()) {
             return Collections.emptyList();
         }
         return entries.stream()
             .sorted(Comparator.comparingLong(entry -> entry.arrivalMillis))
-            .map(entry -> new ScheduleEntry(entry.routeId, entry.arrivalMillis, entry.trainCars, entry.currentStationIndex, null))
+            .map(entry -> {
+                Route route = context.routeIdMap.get(entry.routeId);
+                String routeName = route != null ? nullIfEmpty(safeName(route.name)) : null;
+                String destination = route != null ? nullIfEmpty(route.getDestination(entry.currentStationIndex)) : null;
+                String routeLabel = route != null && route.isLightRailRoute
+                    ? nullIfEmpty(route.lightRailRouteNumber)
+                    : null;
+                String circular = route != null ? describeCircularState(route.circularState) : null;
+                Integer routeColor = route != null ? route.color : null;
+                return new ScheduleEntry(
+                    entry.routeId,
+                    entry.arrivalMillis,
+                    entry.trainCars,
+                    entry.currentStationIndex,
+                    null,
+                    routeName,
+                    destination,
+                    routeLabel,
+                    circular,
+                    routeColor
+                );
+            })
             .collect(Collectors.toList());
     }
 
@@ -602,6 +629,24 @@ public final class MtrDataMapper {
         return name == null ? "" : name;
     }
 
+    private static String nullIfEmpty(String value) {
+        return value == null || value.isEmpty() ? null : value;
+    }
+
+    private static String describeCircularState(Route.CircularState state) {
+        if (state == null) {
+            return null;
+        }
+        String name = state.toString();
+        if ("CLOCKWISE".equals(name)) {
+            return "cw";
+        }
+        if ("COUNTERCLOCKWISE".equals(name)) {
+            return "ccw";
+        }
+        return null;
+    }
+
     private static String describeTransportMode(mtr.data.TransportMode mode) {
         return mode == null ? "UNKNOWN" : mode.name();
     }
@@ -646,6 +691,23 @@ public final class MtrDataMapper {
         }
     }
 
+    private static Class<?> resolvePathDataClass() {
+        try {
+            return Class.forName("mtr.path.PathData");
+        } catch (ClassNotFoundException ex) {
+            LOGGER.debug("PathData class not available", ex);
+            return null;
+        }
+    }
+
+    private static Field locatePathDataField(String name) {
+        Class<?> clazz = PATH_DATA_CLASS;
+        if (clazz == null) {
+            return null;
+        }
+        return locateField(clazz, name);
+    }
+
     private static Object invoke(Method method, Object target) {
         if (method == null || target == null) {
             return null;
@@ -668,6 +730,46 @@ public final class MtrDataMapper {
             LOGGER.debug("Failed to read field {} on {}", field.getName(), target.getClass().getName(), ex);
             return null;
         }
+    }
+
+    private static Optional<Long> resolveRailSegmentId(Train train) {
+        if (train == null || TRAIN_PATH_FIELD == null || PATH_DATA_SAVED_RAIL_BASE_ID == null) {
+            return Optional.empty();
+        }
+        Object pathValue = readField(TRAIN_PATH_FIELD, train);
+        if (!(pathValue instanceof List<?>)) {
+            return Optional.empty();
+        }
+        List<?> pathList = (List<?>) pathValue;
+        if (pathList.isEmpty()) {
+            return Optional.empty();
+        }
+        double progress = train.getRailProgress();
+        int index;
+        try {
+            index = train.getIndex(progress, true);
+        } catch (Throwable ex) {
+            LOGGER.debug("Unable to compute train path index", ex);
+            return Optional.empty();
+        }
+        if (index < 0) {
+            index = 0;
+        }
+        if (index >= pathList.size()) {
+            index = pathList.size() - 1;
+        }
+        Object pathData = pathList.get(index);
+        if (pathData == null) {
+            return Optional.empty();
+        }
+        Object rawValue = readField(PATH_DATA_SAVED_RAIL_BASE_ID, pathData);
+        if (rawValue instanceof Number) {
+            long value = ((Number) rawValue).longValue();
+            if (value != 0L) {
+                return Optional.of(value);
+            }
+        }
+        return Optional.empty();
     }
 
     private static long readLong(Field field, Object target) {
@@ -709,6 +811,7 @@ public final class MtrDataMapper {
         final Map<Long, Set<Long>> platformRouteIds;
         final Map<Long, Long> platformDepotIds;
         final Map<Long, List<Long>> routeStationOrder;
+        final Map<Long, Route> routeIdMap;
 
         private DimensionContext(String dimensionId, RailwayData railwayData, DataCache cache) {
             this.dimensionId = dimensionId;
@@ -724,6 +827,7 @@ public final class MtrDataMapper {
             this.platformRouteIds = buildPlatformRouteIndex(routes);
             this.platformDepotIds = buildPlatformDepotIndex(depots);
             this.routeStationOrder = buildRouteStationOrder(routes, platformToStation);
+            this.routeIdMap = buildRouteIdMap(routes);
         }
 
         static DimensionContext from(MtrDimensionSnapshot snapshot) {
@@ -788,11 +892,11 @@ public final class MtrDataMapper {
             if (depot.platformTimes == null || depot.platformTimes.isEmpty()) {
                 continue;
             }
-            for (Map<Long, Float> platformTimes : depot.platformTimes.values()) {
+            for (Map<Long, Float> platformTimes : new ArrayList<>(depot.platformTimes.values())) {
                 if (platformTimes == null) {
                     continue;
                 }
-                for (Long platformId : platformTimes.keySet()) {
+                for (Long platformId : new ArrayList<>(platformTimes.keySet())) {
                     index.putIfAbsent(platformId, depot.id);
                 }
             }
@@ -819,6 +923,19 @@ public final class MtrDataMapper {
             order.put(route.id, stations);
         }
         return order;
+    }
+
+    private static Map<Long, Route> buildRouteIdMap(List<Route> routes) {
+        if (routes.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Long, Route> map = new HashMap<>();
+        for (Route route : routes) {
+            if (route != null) {
+                map.put(route.id, route);
+            }
+        }
+        return map;
     }
 
     private static final class NodeAccumulator {

@@ -19,6 +19,7 @@ import com.hydroline.beacon.provider.mtr.MtrModels.StationPlatformInfo;
 import com.hydroline.beacon.provider.mtr.MtrModels.StationTimetable;
 import com.hydroline.beacon.provider.mtr.MtrModels.TrainStatus;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Converts DTOs into the JSON schema expected by Bukkit / website callers.
@@ -244,15 +245,26 @@ public final class MtrJsonWriter {
         json.addProperty("platformId", timetable.getPlatformId());
         JsonArray entries = new JsonArray();
         for (ScheduleEntry entry : timetable.getEntries()) {
-            entries.add(writeScheduleEntry(entry));
+            entries.add(writeScheduleEntry(entry, null));
         }
         json.add("entries", entries);
         return json;
     }
 
-    private static JsonObject writeScheduleEntry(ScheduleEntry entry) {
+    public static JsonObject writeScheduleEntry(ScheduleEntry entry, Map<Long, String> routeNames) {
         JsonObject json = new JsonObject();
         json.addProperty("routeId", entry.getRouteId());
+        entry.getRouteName().ifPresent(name -> json.addProperty("routeName", name));
+        if (!json.has("routeName") && routeNames != null) {
+            String fallback = routeNames.get(entry.getRouteId());
+            if (fallback != null && !fallback.isEmpty()) {
+                json.addProperty("routeName", fallback);
+            }
+        }
+        entry.getDestination().ifPresent(destination -> json.addProperty("destination", destination));
+        entry.getCircular().ifPresent(circular -> json.addProperty("circular", circular));
+        entry.getRouteLabel().ifPresent(label -> json.addProperty("route", label));
+        entry.getRouteColor().ifPresent(color -> json.addProperty("color", color));
         json.addProperty("arrivalMillis", entry.getArrivalMillis());
         json.addProperty("trainCars", entry.getTrainCars());
         json.addProperty("currentStationIndex", entry.getCurrentStationIndex());
@@ -265,6 +277,9 @@ public final class MtrJsonWriter {
         if (status.getTrainUuid() != null) {
             json.addProperty("trainUuid", status.getTrainUuid().toString());
         }
+        if (status.getTrainId() != null && !status.getTrainId().isEmpty()) {
+            json.addProperty("trainId", status.getTrainId());
+        }
         json.addProperty("dimension", status.getDimensionId());
         json.addProperty("routeId", status.getRouteId());
         status.getDepotId().ifPresent(id -> json.addProperty("depotId", id));
@@ -272,6 +287,7 @@ public final class MtrJsonWriter {
         status.getCurrentStationId().ifPresent(id -> json.addProperty("currentStationId", id));
         status.getNextStationId().ifPresent(id -> json.addProperty("nextStationId", id));
         status.getDelayMillis().ifPresent(delay -> json.addProperty("delayMillis", delay));
+        status.getRailId().ifPresent(id -> json.addProperty("railId", id));
         json.addProperty("segmentCategory", status.getSegmentCategory());
         json.addProperty("progress", status.getProgress());
         status.getNode().ifPresent(node -> json.add("node", writeNodeInfo(node)));
