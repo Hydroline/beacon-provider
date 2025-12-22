@@ -4,20 +4,18 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.hydroline.beacon.provider.BeaconProviderMod;
 import com.hydroline.beacon.provider.mtr.MtrDimensionSnapshot;
-import com.hydroline.beacon.provider.mtr.MtrJsonWriter;
+import com.hydroline.beacon.provider.mtr.MtrStationScheduleBuilder;
 import com.hydroline.beacon.provider.mtr.MtrModels.DimensionOverview;
-import com.hydroline.beacon.provider.mtr.MtrModels.PlatformTimetable;
 import com.hydroline.beacon.provider.mtr.MtrModels.RouteSummary;
-import com.hydroline.beacon.provider.mtr.MtrModels.ScheduleEntry;
 import com.hydroline.beacon.provider.mtr.MtrModels.StationInfo;
 import com.hydroline.beacon.provider.mtr.MtrModels.StationPlatformInfo;
-import com.hydroline.beacon.provider.mtr.MtrModels.StationTimetable;
 import com.hydroline.beacon.provider.mtr.MtrQueryGateway;
 import com.hydroline.beacon.provider.protocol.BeaconMessage;
 import com.hydroline.beacon.provider.protocol.BeaconResponse;
 import com.hydroline.beacon.provider.transport.TransportContext;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -84,23 +82,27 @@ public final class MtrGetStationScheduleActionHandler extends AbstractMtrActionH
             return invalidPayload(requestId, "no registered dimensions");
         }
 
-        Map<String, Map<Long, String>> routeNamesByDimension = buildRouteNameIndex(overviews);
         Map<String, Map<Long, String>> platformNamesByDimension = buildPlatformNameIndex(gateway.fetchStations(null));
+        Map<String, MtrDimensionSnapshot> snapshotsByDimension = indexSnapshots(snapshots);
 
         JsonArray timetablesArray = new JsonArray();
         for (String dimId : targetDimensions) {
-            Optional<StationTimetable> optional = gateway.fetchStationTimetable(dimId, stationId, platformId);
-            if (!optional.isPresent()) {
+            MtrDimensionSnapshot snapshot = snapshotsByDimension.get(dimId);
+            if (snapshot == null) {
                 continue;
             }
-            StationTimetable timetable = optional.get();
+            JsonArray platforms = MtrStationScheduleBuilder.build(
+                snapshot,
+                stationId,
+                platformId,
+                platformNamesByDimension.getOrDefault(dimId, Collections.emptyMap())
+            );
+            if (platforms == null || platforms.size() == 0) {
+                continue;
+            }
             JsonObject entry = new JsonObject();
             entry.addProperty("dimension", dimId);
-            entry.add("platforms", writePlatformSchedules(
-                timetable.getPlatforms(),
-                platformNamesByDimension.getOrDefault(dimId, Collections.emptyMap()),
-                routeNamesByDimension.getOrDefault(dimId, Collections.emptyMap())
-            ));
+            entry.add("platforms", platforms);
             timetablesArray.add(entry);
         }
         if (timetablesArray.size() == 0) {
@@ -140,23 +142,6 @@ public final class MtrGetStationScheduleActionHandler extends AbstractMtrActionH
         return targets;
     }
 
-    private static Map<String, Map<Long, String>> buildRouteNameIndex(List<DimensionOverview> overviews) {
-        Map<String, Map<Long, String>> index = new HashMap<>();
-        if (overviews == null) {
-            return index;
-        }
-        for (DimensionOverview overview : overviews) {
-            Map<Long, String> map = index.computeIfAbsent(overview.getDimensionId(), key -> new HashMap<>());
-            if (overview.getRoutes() == null) {
-                continue;
-            }
-            for (RouteSummary route : overview.getRoutes()) {
-                map.putIfAbsent(route.getRouteId(), route.getName());
-            }
-        }
-        return index;
-    }
-
     private static Map<String, Map<Long, String>> buildPlatformNameIndex(List<StationInfo> stations) {
         Map<String, Map<Long, String>> index = new HashMap<>();
         if (stations == null) {
@@ -177,39 +162,18 @@ public final class MtrGetStationScheduleActionHandler extends AbstractMtrActionH
         return index;
     }
 
-    private static JsonArray writePlatformSchedules(List<PlatformTimetable> platforms,
-            Map<Long, String> platformNames,
-            Map<Long, String> routeNames) {
-        JsonArray array = new JsonArray();
-        if (platforms == null || platforms.isEmpty()) {
-            return array;
+    private static Map<String, MtrDimensionSnapshot> indexSnapshots(List<MtrDimensionSnapshot> snapshots) {
+        Map<String, MtrDimensionSnapshot> index = new LinkedHashMap<>();
+        if (snapshots == null) {
+            return index;
         }
-        for (PlatformTimetable platform : platforms) {
-            if (platform == null) {
-                continue;
+        for (MtrDimensionSnapshot snapshot : snapshots) {
+            if (snapshot != null) {
+                index.putIfAbsent(snapshot.getDimensionId(), snapshot);
             }
-            JsonArray entries = new JsonArray();
-            List<ScheduleEntry> scheduleEntries = platform.getEntries();
-            if (scheduleEntries != null) {
-                for (ScheduleEntry entry : scheduleEntries) {
-                    if (entry == null) {
-                        continue;
-                    }
-                    entries.add(MtrJsonWriter.writeScheduleEntry(entry, routeNames));
-                }
-            }
-            if (entries.size() == 0) {
-                continue;
-            }
-            JsonObject platformJson = new JsonObject();
-            platformJson.addProperty("platformId", platform.getPlatformId());
-            String platformName = platformNames.get(platform.getPlatformId());
-            if (platformName != null && !platformName.isEmpty()) {
-                platformJson.addProperty("platformName", platformName);
-            }
-            platformJson.add("entries", entries);
-            array.add(platformJson);
         }
-        return array;
+        return index;
     }
+
+    // This handler now delegates to {@link MtrStationScheduleBuilder} and no longer builds JSON directly.
 }

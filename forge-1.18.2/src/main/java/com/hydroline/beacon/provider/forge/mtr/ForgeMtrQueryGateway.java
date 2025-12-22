@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import mtr.data.RailwayData;
@@ -39,91 +41,108 @@ public final class ForgeMtrQueryGateway implements MtrQueryGateway {
 
     @Override
     public boolean isReady() {
-        return !captureSnapshots().isEmpty();
+        return !executeOnServer(this::captureSnapshots, Collections.emptyList()).isEmpty();
     }
 
     @Override
     public List<DimensionOverview> fetchNetworkOverview() {
-        return MtrDataMapper.buildNetworkOverview(captureSnapshots());
+        return executeOnServer(() -> MtrDataMapper.buildNetworkOverview(captureSnapshots()), Collections.emptyList());
     }
 
     @Override
     public Optional<RouteDetail> fetchRouteDetail(String dimensionId, long routeId) {
-        List<MtrDimensionSnapshot> snapshots = captureSnapshots();
-        return findSnapshot(snapshots, dimensionId)
-            .flatMap(snapshot -> MtrDataMapper.buildRouteDetail(snapshot, routeId));
+        return executeOnServer(() -> {
+            List<MtrDimensionSnapshot> snapshots = captureSnapshots();
+            return findSnapshot(snapshots, dimensionId)
+                .flatMap(snapshot -> MtrDataMapper.buildRouteDetail(snapshot, routeId));
+        }, Optional.empty());
     }
 
     @Override
     public List<DepotInfo> fetchDepots(String dimensionId) {
-        List<MtrDimensionSnapshot> snapshots = captureSnapshots();
-        if (dimensionId == null || dimensionId.isEmpty()) {
-            return snapshots.stream()
-                .flatMap(snapshot -> MtrDataMapper.buildDepots(snapshot).stream())
-                .collect(Collectors.toList());
-        }
-        return findSnapshot(snapshots, dimensionId)
-            .map(MtrDataMapper::buildDepots)
-            .orElseGet(Collections::emptyList);
+        return executeOnServer(() -> {
+            List<MtrDimensionSnapshot> snapshots = captureSnapshots();
+            if (dimensionId == null || dimensionId.isEmpty()) {
+                return snapshots.stream()
+                    .flatMap(snapshot -> MtrDataMapper.buildDepots(snapshot).stream())
+                    .collect(Collectors.toList());
+            }
+            return findSnapshot(snapshots, dimensionId)
+                .map(MtrDataMapper::buildDepots)
+                .orElseGet(Collections::emptyList);
+        }, Collections.emptyList());
     }
 
     @Override
     public List<FareAreaInfo> fetchFareAreas(String dimensionId) {
-        List<MtrDimensionSnapshot> snapshots = captureSnapshots();
-        return findSnapshot(snapshots, dimensionId)
-            .map(MtrDataMapper::buildFareAreas)
-            .orElseGet(Collections::emptyList);
+        return executeOnServer(() -> {
+            List<MtrDimensionSnapshot> snapshots = captureSnapshots();
+            return findSnapshot(snapshots, dimensionId)
+                .map(MtrDataMapper::buildFareAreas)
+                .orElseGet(Collections::emptyList);
+        }, Collections.emptyList());
     }
 
     @Override
     public NodePage fetchNodes(String dimensionId, String cursor, int limit) {
-        List<MtrDimensionSnapshot> snapshots = captureSnapshots();
-        return findSnapshot(snapshots, dimensionId)
-            .map(snapshot -> MtrDataMapper.buildNodePage(snapshot, cursor, limit))
-            .orElseGet(() -> new NodePage(dimensionId == null ? "" : dimensionId, Collections.emptyList(), null));
+        NodePage fallback = new NodePage(dimensionId == null ? "" : dimensionId, Collections.emptyList(), null);
+        return executeOnServer(() -> {
+            List<MtrDimensionSnapshot> snapshots = captureSnapshots();
+            return findSnapshot(snapshots, dimensionId)
+                .map(snapshot -> MtrDataMapper.buildNodePage(snapshot, cursor, limit))
+                .orElse(fallback);
+        }, fallback);
     }
 
     @Override
     public Optional<StationTimetable> fetchStationTimetable(String dimensionId, long stationId, Long platformId) {
-        List<MtrDimensionSnapshot> snapshots = captureSnapshots();
-        return findSnapshot(snapshots, dimensionId)
-            .flatMap(snapshot -> MtrDataMapper.buildStationTimetable(snapshot, stationId, platformId));
+        return executeOnServer(() -> {
+            List<MtrDimensionSnapshot> snapshots = captureSnapshots();
+            return findSnapshot(snapshots, dimensionId)
+                .flatMap(snapshot -> MtrDataMapper.buildStationTimetable(snapshot, stationId, platformId));
+        }, Optional.empty());
     }
 
     @Override
     public List<StationInfo> fetchStations(String dimensionId) {
-        List<MtrDimensionSnapshot> snapshots = captureSnapshots();
-        if (dimensionId == null || dimensionId.isEmpty()) {
-            return snapshots.stream()
-                .flatMap(snapshot -> MtrDataMapper.buildStations(snapshot).stream())
-                .collect(Collectors.toList());
-        }
-        return findSnapshot(snapshots, dimensionId)
-            .map(MtrDataMapper::buildStations)
-            .orElseGet(Collections::emptyList);
+        return executeOnServer(() -> {
+            List<MtrDimensionSnapshot> snapshots = captureSnapshots();
+            if (dimensionId == null || dimensionId.isEmpty()) {
+                return snapshots.stream()
+                    .flatMap(snapshot -> MtrDataMapper.buildStations(snapshot).stream())
+                    .collect(Collectors.toList());
+            }
+            return findSnapshot(snapshots, dimensionId)
+                .map(MtrDataMapper::buildStations)
+                .orElseGet(Collections::emptyList);
+        }, Collections.emptyList());
     }
 
     @Override
     public List<TrainStatus> fetchRouteTrains(String dimensionId, long routeId) {
-        List<MtrDimensionSnapshot> snapshots = captureSnapshots();
-        return snapshots.stream()
-            .filter(snapshot -> dimensionId == null || dimensionId.isEmpty()
-                || snapshot.getDimensionId().equals(dimensionId))
-            .flatMap(snapshot -> MtrDataMapper.buildRouteTrains(snapshot, routeId).stream())
-            .collect(Collectors.toList());
+        return executeOnServer(() -> {
+            List<MtrDimensionSnapshot> snapshots = captureSnapshots();
+            return snapshots.stream()
+                .filter(snapshot -> dimensionId == null || dimensionId.isEmpty()
+                    || snapshot.getDimensionId().equals(dimensionId))
+                .flatMap(snapshot -> MtrDataMapper.buildRouteTrains(snapshot, routeId).stream())
+                .collect(Collectors.toList());
+        }, Collections.emptyList());
     }
 
     @Override
     public List<TrainStatus> fetchDepotTrains(String dimensionId, long depotId) {
-        List<MtrDimensionSnapshot> snapshots = captureSnapshots();
-        return findSnapshot(snapshots, dimensionId)
-            .map(snapshot -> MtrDataMapper.buildDepotTrains(snapshot, depotId))
-            .orElseGet(Collections::emptyList);
+        return executeOnServer(() -> {
+            List<MtrDimensionSnapshot> snapshots = captureSnapshots();
+            return findSnapshot(snapshots, dimensionId)
+                .map(snapshot -> MtrDataMapper.buildDepotTrains(snapshot, depotId))
+                .orElseGet(Collections::emptyList);
+        }, Collections.emptyList());
     }
 
     @Override
     public List<MtrDimensionSnapshot> fetchSnapshots() {
-        return captureSnapshots();
+        return executeOnServer(this::captureSnapshots, Collections.emptyList());
     }
 
     private List<MtrDimensionSnapshot> captureSnapshots() {
@@ -166,5 +185,29 @@ public final class ForgeMtrQueryGateway implements MtrQueryGateway {
         return snapshots.stream()
             .filter(snapshot -> snapshot.getDimensionId().equals(dimensionId))
             .findFirst();
+    }
+
+    private <T> T executeOnServer(Supplier<T> supplier, T fallback) {
+        MinecraftServer server = serverSupplier.get();
+        if (server == null) {
+            return fallback;
+        }
+        CompletableFuture<T> future = server.submit(() -> {
+            try {
+                return supplier.get();
+            } catch (Throwable throwable) {
+                throw new RuntimeException(throwable);
+            }
+        });
+        try {
+            T result = future.get();
+            return result == null ? fallback : result;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.warn("Interrupted while executing MTR query on server thread", e);
+        } catch (ExecutionException e) {
+            LOGGER.warn("Failed to execute MTR query on server thread", e.getCause());
+        }
+        return fallback;
     }
 }
