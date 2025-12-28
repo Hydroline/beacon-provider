@@ -64,7 +64,7 @@ public final class MtrJsonWriter {
     public static JsonObject writeRouteDetail(RouteDetail detail) {
         JsonObject json = new JsonObject();
         json.addProperty("dimension", detail.getDimensionId());
-        json.addProperty("routeId", detail.getRouteId());
+        json.addProperty("routeId", String.valueOf(detail.getRouteId()));
         json.addProperty("name", detail.getName());
         json.addProperty("color", detail.getColor());
         json.addProperty("routeType", detail.getRouteType());
@@ -132,7 +132,7 @@ public final class MtrJsonWriter {
     public static JsonObject writeStationTimetable(StationTimetable timetable) {
         JsonObject json = new JsonObject();
         json.addProperty("dimension", timetable.getDimensionId());
-        json.addProperty("stationId", timetable.getStationId());
+        json.addProperty("stationId", String.valueOf(timetable.getStationId()));
         JsonArray platforms = new JsonArray();
         for (PlatformTimetable platform : timetable.getPlatforms()) {
             platforms.add(writePlatformTimetable(platform));
@@ -143,7 +143,7 @@ public final class MtrJsonWriter {
 
     private static JsonObject writeRouteSummary(RouteSummary summary) {
         JsonObject json = new JsonObject();
-        json.addProperty("routeId", summary.getRouteId());
+        json.addProperty("routeId", String.valueOf(summary.getRouteId()));
         json.addProperty("name", summary.getName());
         json.addProperty("color", summary.getColor());
         json.addProperty("transportMode", summary.getTransportMode());
@@ -159,8 +159,8 @@ public final class MtrJsonWriter {
 
     private static JsonObject writePlatformSummary(PlatformSummary summary) {
         JsonObject json = new JsonObject();
-        json.addProperty("platformId", summary.getPlatformId());
-        json.addProperty("stationId", summary.getStationId());
+        json.addProperty("platformId", String.valueOf(summary.getPlatformId()));
+        json.addProperty("stationId", String.valueOf(summary.getStationId()));
         json.addProperty("stationName", summary.getStationName());
         if (summary.getBounds() != null) {
             json.add("bounds", writeBounds(summary.getBounds()));
@@ -171,7 +171,7 @@ public final class MtrJsonWriter {
 
     private static JsonObject writeDepotInfo(DepotInfo depot) {
         JsonObject json = new JsonObject();
-        json.addProperty("depotId", depot.getDepotId());
+        json.addProperty("depotId", String.valueOf(depot.getDepotId()));
         json.addProperty("name", depot.getName());
         json.addProperty("transportMode", depot.getTransportMode());
         json.add("routeIds", writeLongArray(depot.getRouteIds()));
@@ -185,7 +185,7 @@ public final class MtrJsonWriter {
 
     private static JsonObject writeFareAreaInfo(FareAreaInfo info) {
         JsonObject json = new JsonObject();
-        json.addProperty("stationId", info.getStationId());
+        json.addProperty("stationId", String.valueOf(info.getStationId()));
         json.addProperty("name", info.getName());
         json.addProperty("zone", info.getZone());
         if (info.getBounds() != null) {
@@ -198,7 +198,7 @@ public final class MtrJsonWriter {
     private static JsonObject writeStationInfo(StationInfo info) {
         JsonObject json = new JsonObject();
         json.addProperty("dimension", info.getDimensionId());
-        json.addProperty("stationId", info.getStationId());
+        json.addProperty("stationId", String.valueOf(info.getStationId()));
         json.addProperty("name", info.getName());
         json.addProperty("zone", info.getZone());
         if (info.getBounds() != null) {
@@ -215,10 +215,10 @@ public final class MtrJsonWriter {
 
     private static JsonObject writeStationPlatform(StationPlatformInfo platform) {
         JsonObject json = new JsonObject();
-        json.addProperty("platformId", platform.getPlatformId());
+        json.addProperty("platformId", String.valueOf(platform.getPlatformId()));
         json.addProperty("name", platform.getPlatformName());
         json.add("routeIds", writeLongArray(platform.getRouteIds()));
-        platform.getDepotId().ifPresent(id -> json.addProperty("depotId", id));
+        platform.getDepotId().ifPresent(id -> json.addProperty("depotId", String.valueOf(id)));
         return json;
     }
 
@@ -236,13 +236,13 @@ public final class MtrJsonWriter {
         json.addProperty("z", node.getZ());
         json.addProperty("railType", node.getRailType());
         json.addProperty("platformSegment", node.isPlatformSegment());
-        node.getStationId().ifPresent(id -> json.addProperty("stationId", id));
+        node.getStationId().ifPresent(id -> json.addProperty("stationId", String.valueOf(id)));
         return json;
     }
 
     private static JsonObject writePlatformTimetable(PlatformTimetable timetable) {
         JsonObject json = new JsonObject();
-        json.addProperty("platformId", timetable.getPlatformId());
+        json.addProperty("platformId", String.valueOf(timetable.getPlatformId()));
         JsonArray entries = new JsonArray();
         for (ScheduleEntry entry : timetable.getEntries()) {
             entries.add(writeScheduleEntry(entry, null));
@@ -253,7 +253,7 @@ public final class MtrJsonWriter {
 
     public static JsonObject writeScheduleEntry(ScheduleEntry entry, Map<Long, String> routeNames) {
         JsonObject json = new JsonObject();
-        json.addProperty("routeId", entry.getRouteId());
+        json.addProperty("routeId", String.valueOf(entry.getRouteId()));
         entry.getRouteName().ifPresent(name -> json.addProperty("routeName", name));
         if (!json.has("routeName") && routeNames != null) {
             String fallback = routeNames.get(entry.getRouteId());
@@ -280,17 +280,32 @@ public final class MtrJsonWriter {
         if (status.getTrainId() != null && !status.getTrainId().isEmpty()) {
             json.addProperty("trainId", status.getTrainId());
         }
+        if (status.getBaseTrainType() != null && !status.getBaseTrainType().isEmpty()) {
+            json.addProperty("baseTrainType", status.getBaseTrainType());
+        }
         json.addProperty("dimension", status.getDimensionId());
-        json.addProperty("routeId", status.getRouteId());
-        status.getDepotId().ifPresent(id -> json.addProperty("depotId", id));
+        json.addProperty("routeId", String.valueOf(status.getRouteId()));
+        status.getDepotId().ifPresent(id -> json.addProperty("depotId", String.valueOf(id)));
         json.addProperty("transportMode", status.getTransportMode());
-        status.getCurrentStationId().ifPresent(id -> json.addProperty("currentStationId", id));
-        status.getNextStationId().ifPresent(id -> json.addProperty("nextStationId", id));
+        status.getCurrentStationId().ifPresent(id -> json.addProperty("currentStationId", String.valueOf(id)));
+        status.getNextStationId().ifPresent(id -> json.addProperty("nextStationId", String.valueOf(id)));
         status.getDelayMillis().ifPresent(delay -> json.addProperty("delayMillis", delay));
-        status.getRailId().ifPresent(id -> json.addProperty("railId", id));
+        status.getRailId().ifPresent(id -> json.addProperty("railId", String.valueOf(id)));
         json.addProperty("segmentCategory", status.getSegmentCategory());
         json.addProperty("progress", status.getProgress());
         status.getNode().ifPresent(node -> json.add("node", writeNodeInfo(node)));
+        
+        if (status.getPassengers() != null && !status.getPassengers().isEmpty()) {
+            JsonArray passengers = new JsonArray();
+            for (MtrModels.Passenger p : status.getPassengers()) {
+                JsonObject pObj = new JsonObject();
+                pObj.addProperty("uuid", p.getUuid().toString());
+                pObj.addProperty("name", p.getName());
+                passengers.add(pObj);
+            }
+            json.add("passengers", passengers);
+        }
+        
         return json;
     }
 
@@ -310,7 +325,7 @@ public final class MtrJsonWriter {
         if (values != null) {
             for (Long value : values) {
                 if (value != null) {
-                    array.add(value);
+                    array.add(String.valueOf(value));
                 }
             }
         }

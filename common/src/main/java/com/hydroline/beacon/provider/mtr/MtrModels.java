@@ -593,10 +593,29 @@ public final class MtrModels {
         }
     }
 
+    public static final class Passenger {
+        private final java.util.UUID uuid;
+        private final String name;
+
+        public Passenger(java.util.UUID uuid, String name) {
+            this.uuid = uuid;
+            this.name = name;
+        }
+
+        public java.util.UUID getUuid() {
+            return uuid;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
     public static final class TrainStatus {
         private final String dimensionId;
         private final java.util.UUID trainUuid;
         private final String trainId;
+        private final String baseTrainType;
         private final long routeId;
         private final Optional<Long> depotId;
         private final String transportMode;
@@ -607,14 +626,16 @@ public final class MtrModels {
         private final double progress;
         private final Optional<Long> railId;
         private final Optional<NodeInfo> node;
+        private final List<Passenger> passengers;
 
-        public TrainStatus(String dimensionId, java.util.UUID trainUuid, String trainId, long routeId,
+        public TrainStatus(String dimensionId, java.util.UUID trainUuid, String trainId, String baseTrainType, long routeId,
                            Long depotId, String transportMode, Long currentStationId, Long nextStationId,
                            Integer delayMillis, String segmentCategory, double progress, Long railId,
-                           NodeInfo node) {
+                           NodeInfo node, List<Passenger> passengers) {
             this.dimensionId = Objects.requireNonNull(dimensionId, "dimensionId");
             this.trainUuid = trainUuid;
             this.trainId = trainId == null ? "" : trainId;
+            this.baseTrainType = baseTrainType == null ? "" : baseTrainType;
             this.routeId = routeId;
             this.depotId = Optional.ofNullable(depotId);
             this.transportMode = transportMode == null ? "UNKNOWN" : transportMode;
@@ -625,6 +646,7 @@ public final class MtrModels {
             this.progress = progress;
             this.railId = Optional.ofNullable(railId);
             this.node = Optional.ofNullable(node);
+            this.passengers = copyList(passengers);
         }
 
         public String getDimensionId() {
@@ -637,6 +659,10 @@ public final class MtrModels {
 
         public String getTrainId() {
             return trainId;
+        }
+
+        public String getBaseTrainType() {
+            return baseTrainType;
         }
 
         public long getRouteId() {
@@ -677,6 +703,10 @@ public final class MtrModels {
 
         public Optional<NodeInfo> getNode() {
             return node;
+        }
+
+        public List<Passenger> getPassengers() {
+            return passengers;
         }
     }
 

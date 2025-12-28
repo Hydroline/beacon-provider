@@ -21,7 +21,7 @@ const OUTPUT_DIR = path.resolve(
   process.env.OUTPUT_DIR || path.join(__dirname, "output")
 );
 const ACTION_NAME = "mtr:get_railway_snapshot";
-const ROUTE_ID = Number(process.env.PROVIDER_MTR_ROUTE_ID || "0");
+const ROUTE_ID = process.env.PROVIDER_MTR_ROUTE_ID || "0";
 const STATION_ID = parseEnvLong(process.env.PROVIDER_MTR_STATION_ID);
 const STATION_PLATFORM_ID = parseEnvLong(process.env.PROVIDER_MTR_PLATFORM_ID);
 const DEPOT_ID = process.env.PROVIDER_MTR_DEPOT_ID
@@ -107,7 +107,21 @@ async function writeRouteTrainsOutput(client, dimensionSlug) {
   if (DIMENSION) {
     payload.dimension = DIMENSION;
   }
+  console.log(`Requesting route trains for routeId=${ROUTE_ID}...`);
   const response = await client.request("mtr:get_route_trains", payload);
+  
+  if (response && response.payload && Array.isArray(response.payload.trains)) {
+    const trains = response.payload.trains;
+    console.log(`Received ${trains.length} trains.`);
+    trains.forEach((t, i) => {
+      const passengerCount = t.passengers ? t.passengers.length : 0;
+      console.log(`  Train #${i + 1}: ID=${t.trainId}, Type=${t.baseTrainType}, Passengers=${passengerCount}`);
+      if (passengerCount > 0) {
+        console.log(`    Passengers: ${t.passengers.map(p => `${p.name} (${p.uuid})`).join(", ")}`);
+      }
+    });
+  }
+
   const slug = `${dimensionSlug}_route_${routeSuffix(ROUTE_ID)}`;
   const target = path.join(OUTPUT_DIR, `mtr_route_trains_${slug}.json`);
   await writeJson(target, response);

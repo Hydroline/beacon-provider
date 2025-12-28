@@ -106,19 +106,32 @@ public final class ForgeMtrQueryGateway implements MtrQueryGateway {
     @Override
     public List<TrainStatus> fetchRouteTrains(String dimensionId, long routeId) {
         List<MtrDimensionSnapshot> snapshots = captureSnapshots();
+        java.util.function.Function<java.util.UUID, String> nameResolver = this::resolvePlayerName;
         return snapshots.stream()
             .filter(snapshot -> dimensionId == null || dimensionId.isEmpty()
                 || snapshot.getDimensionId().equals(dimensionId))
-            .flatMap(snapshot -> MtrDataMapper.buildRouteTrains(snapshot, routeId).stream())
+            .flatMap(snapshot -> MtrDataMapper.buildRouteTrains(snapshot, routeId, nameResolver).stream())
             .collect(Collectors.toList());
     }
 
     @Override
     public List<TrainStatus> fetchDepotTrains(String dimensionId, long depotId) {
         List<MtrDimensionSnapshot> snapshots = captureSnapshots();
+        java.util.function.Function<java.util.UUID, String> nameResolver = this::resolvePlayerName;
         return findSnapshot(snapshots, dimensionId)
-            .map(snapshot -> MtrDataMapper.buildDepotTrains(snapshot, depotId))
+            .map(snapshot -> MtrDataMapper.buildDepotTrains(snapshot, depotId, nameResolver))
             .orElseGet(Collections::emptyList);
+    }
+
+    private String resolvePlayerName(java.util.UUID uuid) {
+        MinecraftServer server = serverSupplier.get();
+        if (server != null) {
+            net.minecraft.server.level.ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                return player.getGameProfile().getName();
+            }
+        }
+        return null;
     }
 
     @Override

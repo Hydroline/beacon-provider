@@ -68,6 +68,8 @@ public final class MtrDataMapper {
     private static final Field TRAIN_SERVER_ROUTE_ID = locateField(TrainServer.class, "routeId");
     private static final Field TRAIN_NEXT_STOPPING_INDEX = locateField(Train.class, "nextStoppingIndex");
     private static final Field TRAIN_PATH_FIELD = locateField(Train.class, "path");
+    private static final Field TRAIN_RIDING_ENTITIES = locateField(Train.class, "ridingEntities");
+    private static final Field TRAIN_BASE_TRAIN_TYPE = locateField(Train.class, "baseTrainType");
     private static final Class<?> PATH_DATA_CLASS = resolvePathDataClass();
     private static final Field PATH_DATA_SAVED_RAIL_BASE_ID = locatePathDataField("savedRailBaseId");
 
@@ -189,12 +191,12 @@ public final class MtrDataMapper {
         return Optional.of(new StationTimetable(context.dimensionId, stationId, platforms));
     }
 
-    public static List<TrainStatus> buildRouteTrains(MtrDimensionSnapshot snapshot, long routeId) {
+    public static List<TrainStatus> buildRouteTrains(MtrDimensionSnapshot snapshot, long routeId, java.util.function.Function<UUID, String> nameResolver) {
         DimensionContext context = DimensionContext.from(snapshot);
         if (context == null) {
             return Collections.emptyList();
         }
-        List<TrainStatus> trains = collectTrainStatuses(context);
+        List<TrainStatus> trains = collectTrainStatuses(context, nameResolver);
         if (routeId == 0 || trains.isEmpty()) {
             return trains;
         }
@@ -203,12 +205,12 @@ public final class MtrDataMapper {
             .collect(Collectors.toList());
     }
 
-    public static List<TrainStatus> buildDepotTrains(MtrDimensionSnapshot snapshot, long depotId) {
+    public static List<TrainStatus> buildDepotTrains(MtrDimensionSnapshot snapshot, long depotId, java.util.function.Function<UUID, String> nameResolver) {
         DimensionContext context = DimensionContext.from(snapshot);
         if (context == null) {
             return Collections.emptyList();
         }
-        List<TrainStatus> trains = collectTrainStatuses(context);
+        List<TrainStatus> trains = collectTrainStatuses(context, nameResolver);
         if (depotId == 0 || trains.isEmpty()) {
             return trains;
         }
@@ -347,7 +349,7 @@ public final class MtrDataMapper {
         return summaries;
     }
 
-    private static List<TrainStatus> collectTrainStatuses(DimensionContext context) {
+    private static List<TrainStatus> collectTrainStatuses(DimensionContext context, java.util.function.Function<UUID, String> nameResolver) {
         if (context.sidings.isEmpty()) {
             return Collections.emptyList();
         }
@@ -359,7 +361,7 @@ public final class MtrDataMapper {
             }
             Long depotId = resolveDepotId(siding);
             for (TrainServer train : sidingTrains) {
-                TrainStatus status = toTrainStatus(context, train, depotId);
+                TrainStatus status = toTrainStatus(context, train, depotId, nameResolver);
                 if (status != null) {
                     statuses.add(status);
                 }
@@ -395,7 +397,7 @@ public final class MtrDataMapper {
         return null;
     }
 
-    private static TrainStatus toTrainStatus(DimensionContext context, TrainServer train, Long depotId) {
+    private static TrainStatus toTrainStatus(DimensionContext context, TrainServer train, Long depotId, java.util.function.Function<UUID, String> nameResolver) {
         long routeId = readLong(TRAIN_SERVER_ROUTE_ID, train);
         if (routeId == 0) {
             return null;
@@ -408,10 +410,37 @@ public final class MtrDataMapper {
         double progress = normalizeRailProgress(train);
         UUID uuid = resolveTrainUuid(context.dimensionId, train);
         Optional<Long> railId = resolveRailSegmentId(train);
+        
+        String baseTrainType = "";
+        if (TRAIN_BASE_TRAIN_TYPE != null) {
+            Object typeVal = readField(TRAIN_BASE_TRAIN_TYPE, train);
+            if (typeVal instanceof String) {
+                baseTrainType = (String) typeVal;
+            }
+        }
+
+        List<MtrModels.Passenger> passengers = new ArrayList<>();
+        if (TRAIN_RIDING_ENTITIES != null) {
+            Object ridingVal = readField(TRAIN_RIDING_ENTITIES, train);
+            if (ridingVal instanceof Set) {
+                Set<?> ridingSet = (Set<?>) ridingVal;
+                for (Object obj : ridingSet) {
+                    if (obj instanceof UUID) {
+                        UUID pid = (UUID) obj;
+                        String name = nameResolver != null ? nameResolver.apply(pid) : null;
+                        if (name != null) {
+                            passengers.add(new MtrModels.Passenger(pid, name));
+                        }
+                    }
+                }
+            }
+        }
+
         return new TrainStatus(
             context.dimensionId,
             uuid,
             train.trainId,
+            baseTrainType,
             routeId,
             depotId,
             describeTransportMode(train.transportMode),
@@ -421,7 +450,8 @@ public final class MtrDataMapper {
             segmentCategory,
             progress,
             railId.orElse(null),
-            null
+            null,
+            passengers
         );
     }
 
