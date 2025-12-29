@@ -31,9 +31,6 @@ public final class MtrDimensionSnapshot {
      */
     public DataCache refreshAndGetCache() {
         DataCache cache = railwayData.dataCache;
-        if (cache != null) {
-            cache.sync();
-        }
         return cache;
     }
 }
