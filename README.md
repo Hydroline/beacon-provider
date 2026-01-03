@@ -1,6 +1,6 @@
 # beacon-provider
 
-> This project is tightly coupled with the Beacon Plugin.
+> [中文](README_zh.md). This project is tightly coupled with the Beacon Plugin.
 
 Beacon Provider exposes shared telemetry logic that can be shipped on both Fabric and Forge without depending on legacy Architectury shims. The repository is intentionally structured per Minecraft release so that each loader can evolve on its own upgrade cadence.
 
