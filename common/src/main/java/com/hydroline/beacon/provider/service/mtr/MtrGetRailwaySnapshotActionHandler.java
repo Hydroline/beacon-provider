@@ -8,6 +8,7 @@ import com.hydroline.beacon.provider.mtr.RailwayDataSerializer;
 import com.hydroline.beacon.provider.protocol.BeaconMessage;
 import com.hydroline.beacon.provider.protocol.BeaconResponse;
 import com.hydroline.beacon.provider.transport.TransportContext;
+import com.hydroline.beacon.provider.util.PayloadChunker;
 import java.util.Base64;
 import java.util.List;
 
@@ -45,7 +46,8 @@ public final class MtrGetRailwaySnapshotActionHandler extends AbstractMtrActionH
             entry.addProperty("format", "messagepack");
             entry.addProperty("timestamp", now);
             entry.addProperty("length", data.length);
-            entry.addProperty("payload", Base64.getEncoder().encodeToString(data));
+            String encoded = Base64.getEncoder().encodeToString(data);
+            entry.add("payloadChunks", PayloadChunker.chunkEncodedPayload("base64", encoded, data.length));
             serialized.add(entry);
         }
         if (requestedDimension != null && serialized.size() == 0) {

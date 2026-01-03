@@ -1,6 +1,13 @@
 # RailwayData 快照格式说明
 
-`mtr:get_railway_snapshot` 返回的响应中，`payload` 以 `format: "messagepack"` 声明：这个字段先被 Base64 解码，再用 MessagePack（由 `RailwayData.writeMessagePackDataset` 生成）解释，最终得到一个类似 Java `Map<String, Object>` 的结构。根节点包含：
+`mtr:get_railway_snapshot` 返回的响应中，`payloadChunks` 按 `format: "messagepack"` 指定的 MessagePack 数据进行了 Base64 编码，并进一步拆成多个可控长度的 chunk：客户端需要按照 `payloadChunks.chunks` 数组里的 `index` 顺序把 `data` 字符串拼起来，再进行后续的 Base64 + MessagePack 解析。`payloadChunks` 的结构为：
+
+- `encoding`：当前只支持 `base64`，指示 `data` 是经过 Base64 编码后的字符串；
+- `decodedLength`：原始 MessagePack 字节数组的长度；
+- `chunkCount` / `chunkSize`：用于验证和调试的 chunk 数量与每片最大字符长度；
+- `chunks`：数组，元素为 `{ index, length, data }`，其中 `data` 就是当前 chunk 的 Base64 字符串片段。
+
+根节点包含：
 
 - `stations`、`platforms`、`routes`、`depots` 这四个数组，对应 `RailwayData.stations`、`RailwayData.platforms`、`RailwayData.routes`、`RailwayData.depots` 里保存的 `SerializedDataBase` 子类记录；
 - `last_deployed` 保存了 `RailwayData` 的 `lastDeployedMillis`（毫秒），用于判断快照是否过期；
@@ -9,7 +16,8 @@
 
 解析顺序：
 
-1. Base64 解码 `payload` → 获得 MessagePack 原始字节；
+1. 按 `payloadChunks.chunks` 里 `index` 升序拼接所有 `data` 字符串片段，得到完整的、长度约为 `payloadChunks.chunkCount * chunkSize` 的 Base64 字符串。
+2. Base64 解码拼接后的字符串 → 获得 MessagePack 原始字节；
 2. 用 `MessagePack` 解码器将 bytes 转为对象（`msgpack-lite`、`msgpack-core` 均可，Beacon 脚本里使用 `msgpack-lite`）；
 3. 如需做地图绘制，可借助 `BlockPos` 的 `asLong()` 编码（64-bit，见 `net.minecraft.core.BlockPos#asLong()` / `BlockPosEncoding`）来还原再转换成 x/y/z。
 
@@ -66,5 +74,5 @@
 
 - `RailwayData` 所有位置字段（`x_min/z_min`、`pos_1/pos_2`、`x_max/z_max`）均以 Minecraft Block 坐标（整数）保存，可以通过 `net.minecraft.core.BlockPos#asLong()` / `BlockPos.of(long)` 互相转换，Leaflet 只需将 Block 坐标映射到地理投影；
 - `RailwayData.writeMessagePackDataset` 会先写入 `id`→object 的 `Map`，再把对象追加到对应的 `stations` / `platforms` / `routes` / `depots` 数组，因此解码后的 JSON 会同时出现数组与大数字键（如 `6840141479544014000`）；这些重复的对象是同一份内容，客户端可任选一个用法；
-- `payload` 中出现的 `signalBlocks`、`rails`、`sidings`、`lifts` 等集合可以拿来还原 `node` 信息：节点并非单独存储，而是由 `rails`（`Map<BlockPos, Map<BlockPos, Rail>>`） 与 `signalBlocks`（`Map<Long, SignalBlock>`）动态组合而成，`nodes` 可以通过 `MTR` 的辅助类（如 `Platform.getOrderedPositions`、`RailwayDataRouteFinderModule`）再现；
+- 拼接并解码后的 `payload` 中出现的 `signalBlocks`、`rails`、`sidings`、`lifts` 等集合可以拿来还原 `node` 信息：节点并非单独存储，而是由 `rails`（`Map<BlockPos, Map<BlockPos, Rail>>`） 与 `signalBlocks`（`Map<Long, SignalBlock>`）动态组合而成，`nodes` 可以通过 `MTR` 的辅助类（如 `Platform.getOrderedPositions`、`RailwayDataRouteFinderModule`）再现；
 - 由于 Snapshot 里的数据量较大（单维度 MessagePack 约 3.5 MB，在 `tests/output/mtr_railway_snapshot_minecraft_overworld.msgpack` 可以看到），建议在客户端缓存解码结果，只在 `last_deployed` 变化时重新拉取。

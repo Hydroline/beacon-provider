@@ -7,7 +7,7 @@ Beacon Provider 只保留最小的 `action` 集合，专注于提供当前 Minec
 | Action 名称 | 说明 | 请求 `payload` | 响应结构 |
 |-------------|------|----------------|----------|
 | `beacon:ping` | 验证 Gateway 通信，并测量往返延迟。 | 可选：`echo` (`string`) | `echo`（原样返回）、`receivedAt`（服务器时间，ms）、`latencyMs`（处理耗时） |
-| `mtr:get_railway_snapshot` | 返回一个或多个维度当前的 `RailwayData` 快照（MessagePack 格式 + Base64 编码），仅支持读操作。 | 可选：`dimension`（如 `minecraft:overworld`），不传则返回所有缓存的维度。 | `format: "messagepack"`，`snapshots` （数组，每项包含 `dimension`, `timestamp`, `length`, `payload`（Base64）） |
+| `mtr:get_railway_snapshot` | 返回一个或多个维度当前的 `RailwayData` 快照（MessagePack 格式 + Base64 编码），仅支持读操作。 | 可选：`dimension`（如 `minecraft:overworld`），不传则返回所有缓存的维度。 | `format: "messagepack"`，`snapshots` （数组，每项包含 `dimension`, `timestamp`, `length`, `payloadChunks`（chunked Base64）） |
 | `mtr:get_route_trains` | 返回指定维度/线路上正在运行的列车列表及对应的轨道 ID（`railId`）。 | 可选：`dimension`、`routeId`（默认 `0` 表示所有线路）。 | `timestamp`、可选的 `dimension`/`routeId`、`trains`（含 `trainUuid`、`trainId`、`routeId`、`railId`、`currentStationId`、`nextStationId`、`progress`、`segmentCategory`、`delayMillis` 等） |
 | `mtr:get_station_schedule` | 查询某个车站（可选站台）的时刻表，按平台返回即将到达的列车记录（附带线路名称、可跨维度 aggregation）。 | 必需：`stationId`；可选：`dimension`、`platformId`。 | `timestamp`、`stationId`、可选 `dimension`、`timetables`（每项含 `dimension`、`platforms`：`platformId`、`platformName`，`entries` 包含 `routeId`、`routeName`、`route`（线路标签，如 `G23 To`）、`color`（十进制）、`destination`、`circular`、`arrivalMillis`、`trainCars`、`currentStationIndex`、`delayMillis`（若有）） |
 | `mtr:get_all_station_schedules` | 扫描所有维度的 station/platform，返回每个平台的时刻表。 | 可选：`dimension`（默认遍历所有已注册维度）。 | `timestamp`、`dimensions`（每项含 `dimension`、`stations`，站点带 `stationId`/`stationName` 和 `platforms`→`platformId`/`platformName` 与 `entries`，内容同 `mtr:get_station_schedule`） |
@@ -18,10 +18,10 @@ Beacon Provider 只保留最小的 `action` 集合，专注于提供当前 Minec
   - `dimension`: 维度标识（`ResourceLocation` 字符串）。  
   - `timestamp`: 服务端序列化时的毫秒时间戳。  
   - `length`: 解码后的原始 MessagePack 字节数。  
-  - `payload`: 使用 `Base64` 编码的 MessagePack 数据，解码后可交由 Bukkit/前端复用 `RailwayData` 模块提供的逻辑进一步解析。
-- `format`（根级）：目前固定为 `"messagepack"`，用于说明 `payload` 的编码格式。
+  - `payloadChunks`: 包含 chunked Base64 字符串的对象，字段包括 `encoding`（当前固定 `base64`）、`decodedLength`、`chunkCount`、`chunkSize`、以及 `chunks` 数组；客户端需按 `chunks` 里 `index` 升序拼接每项的 `data` 值，再执行 Base64 解码与 MessagePack 解析。  
+- `format`（根级）：目前固定为 `"messagepack"`，用于说明 `payloadChunks` 中的数据编码格式。
 
-调用方只需解析 Base64 并交给 MessagePack 解析器，即可得到与 `world/mtr` 存储结构等价的 `stations`、`platforms`、`routes`、`depots`、`rails`、`signalBlocks`、`sidings` 等集合，用作进一步的 Leaflet 可视化或数据对比。
+调用方只需按 `payloadChunks.chunks` 里的 `index` 升序拼接每项 `data`（形成完整的 Base64 字符串）、再交给 MessagePack 解析器，即可得到与 `world/mtr` 存储结构等价的 `stations`、`platforms`、`routes`、`depots`、`rails`、`signalBlocks`、`sidings` 等集合，用作进一步的 Leaflet 可视化或数据对比。
 
 ### 2.1 站点/平台时刻表的 `entries`
 
