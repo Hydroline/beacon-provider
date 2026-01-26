@@ -24,6 +24,7 @@ plugins {
 val architecturyVersion: String by project
 val architecturyVersion1165: String by project
 val architecturyRelocationBase = "com.hydroline.beacon.shaded.architectury"
+val sqliteRelocationBase = "com.hydroline.beacon.shaded.sqlite"
 val checkoutsDir = layout.projectDirectory.dir("checkouts")
 
 val architecturyJarFileName = "architectury-$architecturyVersion.jar"
@@ -221,6 +222,62 @@ fun Project.configureLoaderProject(config: LoaderProject) {
     apply(plugin = "dev.architectury.loom")
     apply(plugin = "com.github.johnrengelman.shadow")
 
+    fun sanitizeJar(jarFile: File, removeSqlite: Boolean) {
+        val tempFile = File(jarFile.parentFile, "${jarFile.name}.tmp")
+        java.util.zip.ZipFile(jarFile).use { zip ->
+            java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(java.io.FileOutputStream(tempFile))).use { out ->
+                val entries = zip.entries()
+                while (entries.hasMoreElements()) {
+                    val entry = entries.nextElement()
+                    val name = entry.name
+                    if (name.endsWith(".accessWidener")) {
+                        continue
+                    }
+                    if (name.endsWith("module-info.class")) {
+                        continue
+                    }
+                    if (name.startsWith("org/slf4j/")) {
+                        continue
+                    }
+                    if (removeSqlite && (name.startsWith("org/sqlite/") || name.contains("/org/sqlite/"))) {
+                        continue
+                    }
+                    val newEntry = java.util.zip.ZipEntry(name)
+                    out.putNextEntry(newEntry)
+                    if (name == "architectury.common.json") {
+                        val text = zip.getInputStream(entry).bufferedReader(Charsets.UTF_8).readText()
+                        val cleaned = text.replace(Regex("\"accessWidener\"\\s*:\\s*\"[^\"]+\"\\s*,?\\s*"), "")
+                        out.write(cleaned.toByteArray(Charsets.UTF_8))
+                    } else if (name == "META-INF/services/java.sql.Driver") {
+                        val text = zip.getInputStream(entry).bufferedReader(Charsets.UTF_8).readText()
+                        val cleaned = text.replace("org.sqlite.JDBC", "com.hydroline.beacon.shaded.sqlite.JDBC")
+                            .lines()
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
+                            .distinct()
+                            .joinToString("\n")
+                        if (cleaned.isNotEmpty()) {
+                            out.write((cleaned + "\n").toByteArray(Charsets.UTF_8))
+                        }
+                    } else if (name == "META-INF/native-image/org.xerial/sqlite-jdbc/native-image.properties") {
+                        val text = zip.getInputStream(entry).bufferedReader(Charsets.UTF_8).readText()
+                        val cleaned = text.replace(
+                            "org.sqlite.nativeimage.SqliteJdbcFeature",
+                            "com.hydroline.beacon.shaded.sqlite.nativeimage.SqliteJdbcFeature"
+                        )
+                        out.write(cleaned.toByteArray(Charsets.UTF_8))
+                    } else {
+                        zip.getInputStream(entry).use { it.copyTo(out) }
+                    }
+                    out.closeEntry()
+                }
+            }
+        }
+        if (!jarFile.delete() || !tempFile.renameTo(jarFile)) {
+            throw GradleException("Failed to replace jar with sanitized version: ${jarFile.name}")
+        }
+    }
+
     val architecturyApiConfiguration = configurations.maybeCreate("architecturyApi")
 
     val archivesBaseName = rootProject.property("archivesBaseName") as String
@@ -276,14 +333,34 @@ fun Project.configureLoaderProject(config: LoaderProject) {
         } else {
             relocate("dev.architectury", architecturyRelocationBase)
         }
-        exclude("architectury.accessWidener")
+        if (config.target.minecraftVersion == "1.20.1") {
+            relocate("org.sqlite", sqliteRelocationBase)
+        }
+        filesMatching("architectury.common.json") {
+            filter {
+                it.replace(Regex("\"accessWidener\"\\s*:\\s*\"[^\"]+\"\\s*,?\\s*"), "")
+            }
+        }
+        exclude("**/*.accessWidener")
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         isZip64 = true
     }
 
+    val sanitizeShadowJar = tasks.register("sanitizeShadowJar${project.name}") {
+        dependsOn(shadowJar)
+        val shadowArchive = shadowJar.flatMap { it.archiveFile }
+        inputs.file(shadowArchive)
+        outputs.file(shadowArchive)
+        doLast {
+            val inputFile = shadowArchive.get().asFile
+            val shouldRelocateSqlite = config.target.minecraftVersion == "1.20.1"
+            sanitizeJar(inputFile, shouldRelocateSqlite)
+        }
+    }
+
     val architecturyContentsDir = layout.buildDirectory.dir("architecturyContents/${project.name}")
     val architecturyContentsCopy = tasks.register<Copy>("architecturyContents${project.name}") {
-        dependsOn(shadowJar)
+        dependsOn(sanitizeShadowJar)
         from(provider { zipTree(shadowJar.get().archiveFile) })
         into(architecturyContentsDir)
         includeEmptyDirs = false
@@ -306,7 +383,8 @@ fun Project.configureLoaderProject(config: LoaderProject) {
         listOf("architectury.common.json", "architectury-common-refmap.json").forEach { fileName ->
             filesMatching(fileName) {
                 filter {
-                    var content = it.replace("dev/architectury", relocationPackage)
+                    var content = it.replace(Regex("\"accessWidener\"\\s*:\\s*\"[^\"]+\"\\s*,?\\s*"), "")
+                        .replace("dev/architectury", relocationPackage)
                     if (config.target.minecraftVersion == "1.16.5") {
                         content = content.replace("me/shedaniel/architectury", relocationPackage)
                     }
@@ -317,8 +395,16 @@ fun Project.configureLoaderProject(config: LoaderProject) {
     }
 
     tasks.named<RemapJarTask>("remapJar") {
-        dependsOn(architecturyContentsCopy)
+        dependsOn(sanitizeShadowJar, architecturyContentsCopy)
+        inputFile.set(shadowJar.flatMap { it.archiveFile })
         from(architecturyContentsDir)
+        doLast {
+            val outputFile = archiveFile.get().asFile
+            val shouldRelocateSqlite = config.target.minecraftVersion == "1.20.1"
+            if (shouldRelocateSqlite) {
+                sanitizeJar(outputFile, true)
+            }
+        }
     }
 
     tasks.withType<RemapJarTask>().configureEach {

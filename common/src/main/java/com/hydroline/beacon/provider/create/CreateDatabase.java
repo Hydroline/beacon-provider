@@ -301,7 +301,7 @@ public final class CreateDatabase implements AutoCloseable {
             return;
         }
         try (PreparedStatement stmt = connection.prepareStatement(
-            "INSERT INTO create_stations (station_id, graph_id, edge_id, position, name, dimension, x, y, z) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+            "INSERT OR REPLACE INTO create_stations (station_id, graph_id, edge_id, position, name, dimension, x, y, z) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             for (CreateNetworkSnapshot.StationInfo station : stations) {
                 stmt.setString(1, station.getStationId());
                 stmt.setString(2, station.getGraphId());
@@ -323,7 +323,7 @@ public final class CreateDatabase implements AutoCloseable {
             return;
         }
         try (PreparedStatement stmt = connection.prepareStatement(
-            "INSERT INTO create_signal_boundaries (boundary_id, graph_id, edge_id, position, group_id_primary, group_id_secondary, dimension, x, y, z) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+            "INSERT OR REPLACE INTO create_signal_boundaries (boundary_id, graph_id, edge_id, position, group_id_primary, group_id_secondary, dimension, x, y, z) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             for (CreateNetworkSnapshot.SignalBoundaryInfo boundary : boundaries) {
                 stmt.setString(1, boundary.getBoundaryId());
                 stmt.setString(2, boundary.getGraphId());
